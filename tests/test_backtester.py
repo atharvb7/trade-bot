@@ -124,3 +124,20 @@ def test_outcome_label_recorded_for_rejected_candidates() -> None:
     rows = [(5000, 5000, 5000, 5000), (5000, 5100, 4999, 5050)]
     r = run(rows, Scripted(0))
     assert r.decisions.iloc[0]["outcome"] in {"target", "stop", "timeout"}
+
+
+def test_5m_decision_time_is_bar_close() -> None:
+    # 5m bar opening 14:40 closes 14:45 -> still inside the entry window (<= 14:45).
+    # 5m bar opening 14:45 closes 14:50 -> outside it.
+    cfg = zero_cost_cfg()
+    rows = [(100, 100, 100, 100), (100, 104, 99.5, 103), (103, 103, 103, 103)]
+
+    def run5(start: str) -> int:
+        idx = pd.date_range(start, periods=3, freq="5min")
+        o, h, lo, c = (list(x) for x in zip(*rows, strict=True))
+        fr = frame(3, start, open=o, high=h, low=lo, close=c, volume=1000.0, atr_14=2.0)
+        fr.index = idx
+        return len(Backtester(cfg, {"X": fr}, detectors=[Scripted(0)], bar_minutes=5).run().trades)
+
+    assert run5("2026-01-05 14:40") == 1
+    assert run5("2026-01-05 14:45") == 0

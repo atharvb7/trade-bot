@@ -63,3 +63,23 @@ def test_feature_columns_present_and_finite_late_in_data() -> None:
     late = f.iloc[-100:][FEATURE_COLUMNS]
     assert not late.isna().any().any()
     assert np.isfinite(late.to_numpy()).all()
+
+
+def test_no_lookahead_5m_bars() -> None:
+    """Same prefix-invariance check when features are computed on 5-minute bars."""
+    stock, nifty = _data()
+    full = compute_features(stock, nifty, bar_minutes=5)
+    assert (full["available_at"] == full.index + pd.Timedelta(minutes=5)).all()
+    for cut in (130, 403, 777, 1100):  # 403 cuts mid-way through a 5m bar
+        part = compute_features(stock.iloc[:cut], nifty.iloc[:cut], bar_minutes=5)
+        assert len(part) == cut // 5  # the partial 5m bar is dropped, never half-formed
+        pd.testing.assert_frame_equal(
+            part, full.iloc[: len(part)], check_exact=False, rtol=1e-9, atol=1e-9
+        )
+
+
+def test_5m_bars_have_75_per_day() -> None:
+    stock, nifty = _data()
+    f = compute_features(stock, nifty, bar_minutes=5)
+    assert f.groupby(f.index.normalize()).size().eq(75).all()
+    assert f["minutes_to_close"].iloc[74] == 0  # 15:25 bar closes at 15:30

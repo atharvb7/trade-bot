@@ -113,3 +113,10 @@ Security: bind to localhost (SSH tunnel) or password protect; kill switch asks c
 7. Paper trading: live feed, runner, PaperBroker, risk, kill switch, Telegram, systemd on VPS. Done: 4 weeks paper, no unhandled errors, every decision visible.
 8. Live with ₹1,000: broker adapter, reconciliation, stop-loss checks. Done: kill switch tested live with 1-share position and paper targets met.
 Go-live targets (OOS and paper): positive expectancy after costs, max drawdown < 10%, ≥ 50 trades, chosen mode beats simpler variants.
+
+## Git workflow
+Remote: git@github.com:atharvb7/trade-bot.git. `main` = approved, tested work only.
+- One branch per unit of work off `main`: `phase-N/<topic>` (e.g. `phase-4/ml`), `exp/<topic>`, `fix/<topic>`.
+- Conventional commits (`feat:`, `fix:`, `exp:`, `chore:`, `docs:`, `test:`), small and logical; ruff, mypy and pytest pass before every commit.
+- Merge to `main` with `--no-ff` only after the user approves the phase/experiment; push branches to origin.
+- Never commit .env, data/, logs/, models/ or anything containing tokens. Experiments get a write-up in docs/experiments/.

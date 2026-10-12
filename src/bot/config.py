@@ -26,6 +26,25 @@ class DetectorCfg(BaseModel):
     reward_risk: float = 1.5
 
 
+class MLCfg(BaseModel):
+    train_months: int = 6
+    val_months: int = 1
+    test_months: int = 1
+    min_val_candidates: int = 20  # threshold must keep at least this many on validation
+    threshold_grid: list[float] = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+    seed: int = 7
+    lgb_params: dict[str, float | int] = {
+        "n_estimators": 200,
+        "learning_rate": 0.05,
+        "num_leaves": 15,
+        "min_child_samples": 50,
+        "subsample": 0.8,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.8,
+        "reg_lambda": 1.0,
+    }
+
+
 class AppCfg(BaseModel):
     timezone: str = "Asia/Kolkata"
     database_url: str = "sqlite:///data/bot.db"
@@ -35,7 +54,9 @@ class AppCfg(BaseModel):
     starting_capital: float = 1000
     stale_feed_seconds: int = 60
     timeframes: list[str] = ["1m", "5m"]
+    bar_minutes: int = 5  # detector timeframe; see docs/experiments/2026-10-12-timeframe.md
     decision: DecisionCfg = DecisionCfg()
+    ml: MLCfg = MLCfg()
     detectors: DetectorCfg = DetectorCfg()
 
 

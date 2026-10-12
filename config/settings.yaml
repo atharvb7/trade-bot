@@ -1,0 +1,17 @@
+timezone: Asia/Kolkata
+database_url: sqlite:///data/bot.db
+log_dir: logs
+live_confirmation_file: config/LIVE_CONFIRMED   # must exist for live mode
+kill_switch_file: config/KILL
+starting_capital: 1000
+stale_feed_seconds: 60
+timeframes: [1m, 5m]
+decision:
+  mode: rules_only          # rules_only | rules_ml | rules_ml_jev
+  ml_min_prob: 0.60
+  jev_min_conf: 0.70
+  jev_min_quality: 1.5
+  jev_max_trap: 0.35
+detectors:
+  atr_stop_mult: 1.0
+  reward_risk: 1.5

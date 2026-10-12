@@ -1,0 +1,14 @@
+version: 1
+questions:
+  action:
+    type: choice
+    options:
+      long: signals align for upside
+      short: signals align for downside
+      stay_out: signals conflict or the edge is unclear
+  quality:
+    type: score
+    labels: ["Weak, conflicting signals", "Acceptable", "Strong, signals aligned"]
+  trap:
+    type: noul
+    text: Do the signals suggest a false breakout or an exhausted move?

@@ -1,0 +1,16 @@
+fyers-apiv3==3.1.19
+mypy==2.4.0
+numpy==2.5.3
+pandas==3.0.6
+pandas-stubs==3.0.5.260914
+plotly==7.1.0
+pyarrow==25.0.1
+pydantic==2.14.0
+pydantic-settings==2.15.0
+pytest==9.1.1
+python-dotenv==1.2.4
+PyYAML==6.0.3
+ruff==0.16.10
+SQLAlchemy==2.1.4
+streamlit==1.65.0
+types-PyYAML==6.0.12.20260906

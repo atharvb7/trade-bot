@@ -12,3 +12,4 @@ __pycache__/
 config/LIVE_CONFIRMED
 config/KILL
 .coverage
+*.egg-info/

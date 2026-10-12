@@ -7,11 +7,10 @@ import argparse
 import json
 from datetime import datetime
 
-import pandas as pd
-
 from bot.backtest.engine import Backtester
-from bot.backtest.metrics import breakdowns, compute_metrics
-from bot.config import ROOT, load_config
+from bot.backtest.metrics import breakdowns
+from bot.backtest.report import save_run
+from bot.config import load_config
 from bot.data.store import read_1m
 from bot.data.synthetic import make_1m
 from bot.detectors.base import Frame
@@ -43,38 +42,16 @@ for s, df in syms.items():
     frames[s] = Frame.from_df(bar_table(df, nifty, args.bar_minutes))
 
 res = Backtester(cfg, frames, bar_minutes=args.bar_minutes).run()
-m = compute_metrics(res.trades, res.start_capital, res.n_days)
 run_id = (
     datetime.now().strftime("%Y%m%d_%H%M%S")
     + f"_{args.mode}_{args.bar_minutes}m"
     + ("_synth" if args.synthetic else "")
 )
-out = ROOT / "data" / "backtests" / run_id
-out.mkdir(parents=True, exist_ok=True)
-res.trades.to_parquet(out / "trades.parquet")
-res.decisions.to_parquet(out / "decisions.parquet")
-res.equity.to_parquet(out / "equity.parquet")
-bars = []
-for s_, fr in frames.items():
-    cols = ("open", "high", "low", "close", "volume", "vwap", "ema_21")
-    b = pd.DataFrame({k: fr[k] for k in cols}, index=fr.index)
-    b["symbol"] = s_
-    bars.append(b)
-pd.concat(bars).to_parquet(out / "bars.parquet")
-(out / "metrics.json").write_text(
-    json.dumps(
-        {
-            "metrics": m,
-            "config": res.config,
-            "n_days": res.n_days,
-            "start_capital": res.start_capital,
-            "mode": args.mode,
-            "bar_minutes": args.bar_minutes,
-            "synthetic": args.synthetic,
-        },
-        indent=1,
-        default=str,
-    )
+_, m = save_run(
+    res,
+    frames,
+    run_id,
+    {"mode": args.mode, "bar_minutes": args.bar_minutes, "synthetic": args.synthetic},
 )
 print(f"run: {run_id}  days: {res.n_days}  candidates: {len(res.decisions)}")
 print(json.dumps(m, indent=1))

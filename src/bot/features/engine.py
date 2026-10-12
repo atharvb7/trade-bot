@@ -1,7 +1,10 @@
-"""Feature engine. Row t = the 1m bar OPENING at t, which closes at ``available_at``.
+"""Feature engine. Row t = the bar OPENING at t, which closes at ``available_at``.
 
-Every feature uses only bars closed at or before ``available_at``. Higher-timeframe
-(Nifty 5m/15m) values are joined on close time, never open time.
+Inputs are always 1m candles; ``bar_minutes`` > 1 resamples them to closed N-minute bars
+first, so detectors can run on 5m bars with the same code. Every feature uses only bars
+closed at or before ``available_at``. Higher-timeframe (Nifty 5m/15m) values are joined on
+close time, never open time. Bar-count indicators (RSI/EMA/ATR) are in bars; time-based
+lookbacks (VWAP slope, relative strength) are in minutes.
 """
 
 from __future__ import annotations
@@ -56,16 +59,26 @@ def _htf_trend(nifty1m: pd.DataFrame, minutes: int) -> pd.DataFrame:
     return pd.DataFrame({"available_at": bars["available_at"], f"nifty_trend_{minutes}m": trend})
 
 
-def compute_features(df: pd.DataFrame, nifty: pd.DataFrame) -> pd.DataFrame:
+def to_bars(df1m: pd.DataFrame, bar_minutes: int) -> pd.DataFrame:
+    """Closed N-minute OHLCV bars from 1m candles (identity for N=1)."""
+    if bar_minutes == 1:
+        return df1m
+    return resample_closed(df1m, bar_minutes).drop(columns="available_at")
+
+
+def compute_features(df: pd.DataFrame, nifty: pd.DataFrame, bar_minutes: int = 1) -> pd.DataFrame:
     """df, nifty: 1m OHLCV indexed by open time (tz-naive IST). Returns features + available_at."""
+    nifty1m = nifty
+    df, nifty = to_bars(df, bar_minutes), to_bars(nifty, bar_minutes)
     f = pd.DataFrame(index=df.index)
-    f["available_at"] = df.index + pd.Timedelta(minutes=1)
+    f["available_at"] = df.index + pd.Timedelta(minutes=bar_minutes)
     close, vol = df["close"], df["volume"]
     day = pd.DatetimeIndex(df.index).normalize()
 
     vwap = session_vwap(df)
     f["price_vs_vwap_pct"] = (close / vwap - 1) * 100
-    f["vwap_slope_pct"] = (vwap / vwap.groupby(day).shift(5) - 1) * 100
+    slope_bars = max(1, 5 // bar_minutes)  # ~5 minutes
+    f["vwap_slope_pct"] = (vwap / vwap.groupby(day).shift(slope_bars) - 1) * 100
 
     r = rsi(close, 14)
     f["rsi_14"] = r
@@ -105,16 +118,17 @@ def compute_features(df: pd.DataFrame, nifty: pd.DataFrame) -> pd.DataFrame:
     # Higher-timeframe Nifty trend joined on CLOSE time.
     left = f[["available_at"]].reset_index()
     for m in (5, 15):
-        right = _htf_trend(nifty, m).sort_values("available_at")
+        right = _htf_trend(nifty1m, m).sort_values("available_at")
         merged = pd.merge_asof(left, right, on="available_at", direction="backward")
         f[f"nifty_trend_{m}m"] = merged[f"nifty_trend_{m}m"].to_numpy()
 
-    # Relative strength: stock vs Nifty return over last 30 bars (aligned on bar time).
+    # Relative strength: stock vs Nifty return over the last ~30 minutes (aligned on bar time).
+    rs_bars = max(1, 30 // bar_minutes)
     n_close = nifty["close"].reindex(df.index)
-    f["rel_strength_vs_nifty"] = (close.pct_change(30) - n_close.pct_change(30)) * 100
+    f["rel_strength_vs_nifty"] = (close.pct_change(rs_bars) - n_close.pct_change(rs_bars)) * 100
 
     f["minutes_since_open"] = mins_open
-    f["minutes_to_close"] = 375 - mins_open - 1
+    f["minutes_to_close"] = 375 - mins_open - bar_minutes
     f["tod_bucket"] = (mins_open // 60).astype(float)  # hour of session, 0..6
 
     # Previous-day levels: only fully completed earlier days.
@@ -131,3 +145,9 @@ def compute_features(df: pd.DataFrame, nifty: pd.DataFrame) -> pd.DataFrame:
     f["or_high"] = or_hi
     f["or_low"] = or_lo
     return f[["available_at", *FEATURE_COLUMNS, *AUX_COLUMNS]]
+
+
+def bar_table(df1m: pd.DataFrame, nifty1m: pd.DataFrame, bar_minutes: int = 1) -> pd.DataFrame:
+    """OHLCV bars joined with their features: the input for detectors and the backtester."""
+    feats = compute_features(df1m, nifty1m, bar_minutes)
+    return pd.concat([to_bars(df1m, bar_minutes), feats.drop(columns="available_at")], axis=1)

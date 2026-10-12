@@ -1,6 +1,6 @@
 """Run a rules_only backtest and write a report to data/backtests/<run_id>/.
 
-Usage: python scripts/run_backtest.py [--synthetic] [--mode rules_only]
+Usage: python scripts/run_backtest.py [--synthetic] [--mode rules_only] [--bar-minutes 5]
 """
 
 import argparse
@@ -15,13 +15,14 @@ from bot.config import ROOT, load_config
 from bot.data.store import read_1m
 from bot.data.synthetic import make_1m
 from bot.detectors.base import Frame
-from bot.features.engine import compute_features
+from bot.features.engine import bar_table
 
 ap = argparse.ArgumentParser()
 ap.add_argument(
     "--synthetic", action="store_true", help="random-walk data (expect losses after costs)"
 )
 ap.add_argument("--mode", default="rules_only")
+ap.add_argument("--bar-minutes", type=int, default=1, help="detector timeframe (1 or 5)")
 ap.add_argument("--min-edge", type=float, default=None, help="override min-edge (research only)")
 args = ap.parse_args()
 
@@ -39,14 +40,13 @@ else:
     nifty = read_1m(cfg.watchlist.index)
     syms = {s: read_1m(s) for s in cfg.watchlist.symbols}
 for s, df in syms.items():
-    feats = compute_features(df, nifty)
-    frames[s] = Frame.from_df(pd.concat([df, feats.drop(columns="available_at")], axis=1))
+    frames[s] = Frame.from_df(bar_table(df, nifty, args.bar_minutes))
 
-res = Backtester(cfg, frames).run()
+res = Backtester(cfg, frames, bar_minutes=args.bar_minutes).run()
 m = compute_metrics(res.trades, res.start_capital, res.n_days)
 run_id = (
     datetime.now().strftime("%Y%m%d_%H%M%S")
-    + f"_{args.mode}"
+    + f"_{args.mode}_{args.bar_minutes}m"
     + ("_synth" if args.synthetic else "")
 )
 out = ROOT / "data" / "backtests" / run_id
@@ -69,6 +69,7 @@ pd.concat(bars).to_parquet(out / "bars.parquet")
             "n_days": res.n_days,
             "start_capital": res.start_capital,
             "mode": args.mode,
+            "bar_minutes": args.bar_minutes,
             "synthetic": args.synthetic,
         },
         indent=1,

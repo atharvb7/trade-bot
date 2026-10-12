@@ -63,6 +63,7 @@ class Backtester:
         detectors: list[Detector] | None = None,
         ml_prob_fn: Any = None,
         jev_fn: Any = None,
+        bar_minutes: int = 1,
     ) -> None:
         self.cfg, self.frames = cfg, frames
         self.detectors = detectors if detectors is not None else ALL_DETECTORS
@@ -70,6 +71,7 @@ class Backtester:
         self.risk = RiskManager(cfg.risk, self.costs)
         self.ml_prob_fn = ml_prob_fn  # (cand, frame, i) -> float | None   (Phase 4)
         self.jev_fn = jev_fn  # (cand, frame, i, ml_prob) -> JevAnswer | None   (Phase 5)
+        self.bar_minutes = bar_minutes
 
     def run(self) -> BacktestResult:
         cfg, slip = self.cfg, self.cfg.costs.slippage_pct
@@ -171,7 +173,7 @@ class Backtester:
                         found.features = {k: float(fr[k][i]) for k in _FEATS if k in fr.cols}
                         cands.append((found, i))
             cands.sort(key=lambda ci: -ci[0].features.get("volume_vs_avg20", 0.0))
-            now = ts + pd.Timedelta(minutes=1)  # decision time = bar close
+            now = ts + pd.Timedelta(minutes=self.bar_minutes)  # decision time = bar close
             for c, i in cands:
                 fr = self.frames[c.symbol]
                 ml_prob = self.ml_prob_fn(c, fr, i) if self.ml_prob_fn else None

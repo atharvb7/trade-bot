@@ -18,7 +18,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="announce"><div class="wrap"><span>Latest experiment: 5-minute bars halve the cost drag, but no version is profitable yet.</span><a href="#results">Read the results</a></div></div>
+<div class="announce"><div class="wrap"><span>Latest experiment: wider stops cut costs to about 0.15 R, but the signal itself is still about zero.</span><a href="#results">Read the results</a></div></div>
 <header class="site-header">
   <div class="wrap">
     <a class="brand" href="./" aria-label="Trade-bot home">
@@ -100,7 +100,7 @@
         <div class="stat"><span class="v">8</span><span class="k">Stocks watched</span><span class="s">Low-priced NSE names, so &#8377;1,000 buys at least one share.</span></div>
         <div class="stat"><span class="v">3</span><span class="k">Trade setups</span><span class="s">Opening range breakout, VWAP reclaim and trend pullback.</span></div>
         <div class="stat"><span class="v">8</span><span class="k">Risk checks</span><span class="s">Run in a fixed order before any order is placed.</span></div>
-        <div class="stat"><span class="v">58</span><span class="k">Tests passing</span><span class="s">Including checks that no feature reads a future candle.</span></div>
+        <div class="stat"><span class="v">72</span><span class="k">Tests passing</span><span class="s">Including checks that no feature reads a future candle.</span></div>
       </div>
     </div>
   </section>
@@ -162,6 +162,24 @@
           <p class="small muted">Source: <code>docs/experiments/2026-10-12-timeframe.md</code> in the repository.</p>
         </div>
       </details>
+      <details class="more results-more">
+        <summary>Every experiment so far, on data it was not tuned on</summary>
+        <div class="more-body">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Experiment</th><th>Out-of-sample test</th><th class="n">Net R per signal</th><th>Verdict</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1-minute vs 5-minute bars</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;1.10</td><td>Costs take about 1 R per trade</td></tr>
+                <tr><td>ML filter (LightGBM, walk-forward)</td><td>6 test months, May to Oct 2026</td><td class="n muted">n/a</td><td>AUC 0.499, same as shuffled labels. The filter never trades.</td></tr>
+                <tr><td>Wider stops on 15-minute bars, opening-range breakout</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;0.17</td><td>Costs now small, but the signal is about 0 R before costs</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small muted">Sources: <code>docs/experiments/</code> in the repository. Nothing here was changed after seeing the holdout.</p>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -169,7 +187,7 @@
     <div class="wrap">
       <div class="section-head">
         <p class="eyebrow"><b>Chapter C</b> &middot; Build</p>
-        <h2>Phase 3 of 8.</h2>
+        <h2>Phase 4 of 8.</h2>
         <p>Each phase is built and tested before the next one starts. Real money comes last, and only after positive results on data the bot has never seen.</p>
       </div>
       <ol class="stages" id="stages"></ol>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trade-bot Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Backtest results for Trade-bot: equity, drawdown, every trade with its candle chart, and every rejected signal with its reason.">
+<meta name="theme-color" content="#17191c">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/dashboard.css">
+<script src="assets/js/site-config.js"></script>
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Trade-bot home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect class="mk-bg" width="32" height="32" rx="4"/><path class="mk-fg" d="M11 5v22" stroke-width="2"/><rect class="mk-fg" x="8" y="10" width="6" height="11"/><path class="mk-ac" d="M21 4v20" stroke-width="2"/><rect class="mk-ac" x="18" y="7" width="6" height="10"/></svg>
+      Trade-bot
+    </a>
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="nav" id="site-nav" aria-label="Main">
+      <a href="./#how">How it works</a>
+      <a href="./#results">Results</a>
+      <a href="./#status">Build status</a>
+      <a href="./#faq">Questions</a>
+      <a href="dashboard.html" aria-current="page">Dashboard</a>
+    </nav>
+    <div class="header-actions">
+      <button type="button" class="theme-toggle">Theme: Auto</button>
+      
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap dash-main">
+  <div class="dash-head">
+    <div class="dash-title">
+      <p class="eyebrow">Backtest runs</p>
+      <h1>Dashboard</h1>
+      <p class="muted" id="run-meta">Loading run</p>
+    </div>
+    <div class="field run-picker">
+      <label for="run">Run</label>
+      <select id="run"></select>
+    </div>
+  </div>
+  <div class="notices" id="notices"></div>
+
+  <section class="kpis" id="kpis" aria-label="Run summary"></section>
+
+  <div class="tabs" role="tablist" aria-label="Dashboard views">
+    <button type="button" role="tab" id="tab-performance" aria-controls="view-performance" data-view="performance">Performance</button>
+    <button type="button" role="tab" id="tab-trades" aria-controls="view-trades" data-view="trades">Trades <span class="count" id="count-trades"></span></button>
+    <button type="button" role="tab" id="tab-funnel" aria-controls="view-funnel" data-view="funnel">Decision funnel <span class="count" id="count-signals"></span></button>
+    <button type="button" role="tab" id="tab-edge" aria-controls="view-edge" data-view="edge">Signal edge</button>
+  </div>
+
+  <section class="view" id="view-performance" role="tabpanel" aria-labelledby="tab-performance">
+    <div class="empty panel" data-empty="trades" hidden></div>
+    <div data-needs="trades">
+      <div class="panel card">
+        <div class="card-head"><h2>Equity after costs</h2><div class="legend"><span class="ink"><i></i>Equity</span><span class="muted"><i class="dash"></i>Starting capital</span></div></div>
+        <div class="chart" id="equity-chart"></div>
+        <div class="chart dd" id="dd-chart"></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel card">
+          <div class="card-head">
+            <h2>Net P&amp;L by</h2>
+            <div class="seg" role="group" aria-label="Group by" id="by-seg">
+              <button type="button" data-by="setup" aria-pressed="true">Setup</button>
+              <button type="button" data-by="symbol" aria-pressed="false">Symbol</button>
+              <button type="button" data-by="hour" aria-pressed="false">Hour</button>
+            </div>
+          </div>
+          <div class="chart" id="by-chart"></div>
+          <div class="table-scroll flat"><table><thead><tr><th id="by-key">Setup</th><th class="n">Trades</th><th class="n">Win %</th><th class="n">Net &#8377;</th><th class="n">&#8377; per trade</th></tr></thead><tbody id="by-body"></tbody></table></div>
+        </div>
+        <div class="panel card">
+          <div class="card-head"><h2>Where the money went</h2></div>
+          <div class="chart" id="cost-chart"></div>
+          <dl class="kv" id="cost-kv"></dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-trades" role="tabpanel" aria-labelledby="tab-trades" hidden>
+    <div class="empty panel" data-empty="trades" hidden></div>
+    <div data-needs="trades">
+      <div class="panel card trade-detail" id="trade-detail">
+        <div class="card-head">
+          <h2 id="td-title">Select a trade</h2>
+          <div class="legend"><span class="ink"><i></i>VWAP</span><span class="accent"><i class="dash"></i>EMA21</span><span class="gain"><i class="dash"></i>Target</span><span class="loss"><i class="dash"></i>Stop</span></div>
+        </div>
+        <div class="td-body">
+          <div class="chart" id="candle-chart"></div>
+          <dl class="kv" id="td-kv"></dl>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="field"><label for="f-symbol">Symbol</label><select id="f-symbol"></select></div>
+        <div class="field"><label for="f-setup">Setup</label><select id="f-setup"></select></div>
+        <div class="field"><span class="label" id="f-result-l">Result</span>
+          <div class="seg" role="group" aria-labelledby="f-result-l" id="f-result">
+            <button type="button" data-r="all" aria-pressed="true">All</button>
+            <button type="button" data-r="win" aria-pressed="false">Winners</button>
+            <button type="button" data-r="loss" aria-pressed="false">Losers</button>
+          </div>
+        </div>
+        <p class="small muted filter-count" id="f-count" aria-live="polite"></p>
+      </div>
+      <div class="table-scroll tall">
+        <table id="trades-table">
+          <thead><tr>
+            <th><button class="sort" data-k="entry_ts">Entry</button></th>
+            <th><button class="sort" data-k="symbol">Symbol</button></th>
+            <th><button class="sort" data-k="setup">Setup</button></th>
+            <th><button class="sort" data-k="direction">Side</button></th>
+            <th class="n"><button class="sort" data-k="qty">Qty</button></th>
+            <th class="n"><button class="sort" data-k="entry_price">Entry &#8377;</button></th>
+            <th class="n"><button class="sort" data-k="exit_price">Exit &#8377;</button></th>
+            <th><button class="sort" data-k="exit_reason">Exit</button></th>
+            <th class="n"><button class="sort" data-k="gross_pnl">Gross</button></th>
+            <th class="n"><button class="sort" data-k="costs">Costs</button></th>
+            <th class="n"><button class="sort" data-k="net_pnl">Net</button></th>
+          </tr></thead>
+          <tbody id="trades-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-funnel" role="tabpanel" aria-labelledby="tab-funnel" hidden>
+    <div class="grid-2">
+      <div class="panel card">
+        <div class="card-head"><h2>Signals to fills</h2></div>
+        <div id="funnel"></div>
+        <p class="small muted" id="funnel-note"></p>
+      </div>
+      <div class="panel card">
+        <div class="card-head"><h2>Why signals were rejected</h2></div>
+        <div id="reasons"></div>
+        <p class="small muted">Each rejected signal is counted once, under the first check it failed.</p>
+      </div>
+    </div>
+    <div class="panel card">
+      <div class="card-head"><h2>Latest rejected signals and what would have happened</h2><span class="small muted" id="rej-note"></span></div>
+      <div class="table-scroll tall flat">
+        <table>
+          <thead><tr><th>Signal bar</th><th>Symbol</th><th>Setup</th><th>Side</th><th class="n">Entry &#8377;</th><th class="n">Stop &#8377;</th><th class="n">Target &#8377;</th><th>Rejected by</th><th>Outcome</th><th class="n">&#8377; per share</th></tr></thead>
+          <tbody id="rej-body"></tbody>
+        </table>
+      </div>
+      <p class="small muted">Outcome simulates a fill at the next bar's open plus slippage, before fees, with the same stop, target and 15:10 square-off rules as real trades.</p>
+    </div>
+  </section>
+
+  <section class="view" id="view-edge" role="tabpanel" aria-labelledby="tab-edge" hidden>
+    <div class="panel card">
+      <div class="card-head"><h2>Does the signal itself have an edge?</h2></div>
+      <p class="muted edge-intro">This view ignores the account limits (3 trades a day, losing streaks) and scores every signal that could have been traded. 1 R is the distance from entry to stop. A signal needs a win rate above breakeven and a positive net R to be worth trading.</p>
+      <div class="edge-kpis" id="edge-kpis"></div>
+      <div class="chart" id="edge-chart"></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Setup</th><th class="n">Signals</th><th class="n">Win %</th><th class="n">Breakeven %</th><th class="n">Gross R</th><th class="n">Fee R</th><th class="n">Net R</th><th class="n">Median stop %</th></tr></thead>
+        <tbody id="edge-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="small muted dash-foot" id="generated"></p>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="f-brand">
+      <a class="brand" href="./" aria-label="Trade-bot home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect class="mk-bg" width="32" height="32" rx="4"/><path class="mk-fg" d="M11 5v22" stroke-width="2"/><rect class="mk-fg" x="8" y="10" width="6" height="11"/><path class="mk-ac" d="M21 4v20" stroke-width="2"/><rect class="mk-ac" x="18" y="7" width="6" height="10"/></svg>Trade-bot</a>
+      <p>A research project for intraday trading on NSE cash equities. It runs in paper mode only. Backtest results are hypothetical and do not predict future returns. Nothing here is investment advice.</p>
+    </div>
+    <div>
+      <h2>Explore</h2>
+      <ul><li><a href="./#how">How it works</a></li><li><a href="./#results">Results</a></li><li><a href="./#status">Build status</a></li><li><a href="dashboard.html">Dashboard</a></li></ul>
+    </div>
+    <div>
+      <h2>Legal</h2>
+      <ul><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms and conditions</a></li></ul>
+    </div>
+    <p class="f-fine"><span>&copy; 2026 <span data-config="operatorName"></span></span><span>Paper mode only. Not investment advice.</span></p>
+  </div>
+</footer>
+<script src="data/runs.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>

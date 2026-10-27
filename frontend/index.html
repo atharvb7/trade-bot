@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trade-bot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="An intraday trading bot for NSE stocks that logs every trade signal, including the ones its risk rules refuse. Research project in paper mode.">
+<meta name="theme-color" content="#17191c">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/home.css">
+<script src="assets/js/site-config.js"></script>
+<script src="assets/js/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="announce"><div class="wrap"><span>Latest experiment: wider stops cut costs to about 0.15 R, but the signal itself is still about zero.</span><a href="#results">Read the results</a></div></div>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="Trade-bot home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect class="mk-bg" width="32" height="32" rx="4"/><path class="mk-fg" d="M11 5v22" stroke-width="2"/><rect class="mk-fg" x="8" y="10" width="6" height="11"/><path class="mk-ac" d="M21 4v20" stroke-width="2"/><rect class="mk-ac" x="18" y="7" width="6" height="10"/></svg>
+      Trade-bot
+    </a>
+    <button type="button" class="menu-btn" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="nav" id="site-nav" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#results">Results</a>
+      <a href="#status">Build status</a>
+      <a href="#faq">Questions</a>
+      <a href="dashboard.html">Dashboard</a>
+    </nav>
+    <div class="header-actions">
+      <button type="button" class="theme-toggle">Theme: Auto</button>
+      <a class="btn small" href="dashboard.html">Open dashboard</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">NSE intraday research &middot; paper mode</p>
+        <h1>An NSE intraday bot that records every trade it refuses.</h1>
+        <p class="lede">It scans 8 stocks, finds three setups and runs each one through eight risk checks. With &#8377;1,000 and no leverage, it only trades when the target clearly beats the costs. So far, no version has found an edge that does.</p>
+        <div class="hero-actions">
+          <a class="btn" href="dashboard.html">Open the dashboard</a>
+          <a class="arrow" href="#how">See how it works</a>
+        </div>
+      </div>
+
+      <div class="ticket-stage">
+        <span class="deco deco-sage" aria-hidden="true"></span>
+        <span class="deco deco-butter" aria-hidden="true"></span>
+        <form class="ticket" id="ticket" aria-labelledby="ticket-title">
+          <div class="ticket-head">
+            <p class="eyebrow">Trade ticket</p>
+            <h2 id="ticket-title">Would this trade pass?</h2>
+            <p class="small muted">Drag the sliders. Same cost and sizing rules as the bot, on &#8377;1,000.</p>
+          </div>
+          <div class="slider">
+            <div class="slider-top"><label for="t-price">Share price</label><output id="t-price-v" for="t-price" class="num"></output></div>
+            <input id="t-price" type="range" min="20" max="3000" step="5" value="250">
+          </div>
+          <div class="slider">
+            <div class="slider-top"><label for="t-stop">Stop distance</label><output id="t-stop-v" for="t-stop" class="num"></output></div>
+            <input id="t-stop" type="range" min="0.05" max="2" step="0.05" value="0.2">
+          </div>
+          <div class="slider slider-inline">
+            <span class="label" id="t-rr-l">Reward to risk</span>
+            <div class="seg" role="group" aria-labelledby="t-rr-l" id="t-rr">
+              <button type="button" data-rr="1.5" aria-pressed="true">1.5</button>
+              <button type="button" data-rr="2" aria-pressed="false">2</button>
+              <button type="button" data-rr="3" aria-pressed="false">3</button>
+            </div>
+          </div>
+          <div class="verdict" id="t-verdict" aria-live="polite"></div>
+          <div class="bars" aria-hidden="true">
+            <div class="bar-row"><span>Target gain</span><span class="track"><span class="fill gain-fill" id="tb-gain"></span></span><span class="num" id="tb-gain-v"></span></div>
+            <div class="bar-row"><span>3 &times; costs</span><span class="track"><span class="fill cost-fill" id="tb-cost"></span></span><span class="num" id="tb-cost-v"></span></div>
+          </div>
+          <dl class="tstats" id="t-stats"></dl>
+          <details class="more">
+            <summary>Fee breakdown</summary>
+            <div class="more-body">
+              <table class="fee-table"><tbody id="t-rows"></tbody></table>
+              <p class="small muted">Rates from <code>config/costs.yaml</code>. Sizing risks 1% of capital, is capped by cash and always rounds down.</p>
+            </div>
+          </details>
+        </form>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="stats-row" aria-label="Project facts">
+        <div class="stat"><span class="v">8</span><span class="k">Stocks watched</span><span class="s">Low-priced NSE names, so &#8377;1,000 buys at least one share.</span></div>
+        <div class="stat"><span class="v">3</span><span class="k">Trade setups</span><span class="s">Opening range breakout, VWAP reclaim and trend pullback.</span></div>
+        <div class="stat"><span class="v">8</span><span class="k">Risk checks</span><span class="s">Run in a fixed order before any order is placed.</span></div>
+        <div class="stat"><span class="v">72</span><span class="k">Tests passing</span><span class="s">Including checks that no feature reads a future candle.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow"><b>Chapter A</b> &middot; Pipeline</p>
+        <h2>Every signal has to earn its way to an order.</h2>
+        <p>Nine stages run in order on each closed candle. Any of them can stop a signal, and the reason is saved. Select a stage to see what goes in and what comes out.</p>
+      </div>
+      <div class="how-grid">
+        <ol class="stage-list" id="stage-list" role="tablist" aria-label="Pipeline stages" aria-orientation="vertical"></ol>
+        <article class="stage-panel panel" id="stage-panel" role="tabpanel" aria-live="polite"></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="results">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow"><b>Chapter B</b> &middot; Results</p>
+        <h2>No version tested so far makes money after costs.</h2>
+        <p>R is the amount risked on a trade, so &minus;1.0 R means a signal loses about what it risks. Zero is breakeven.</p>
+      </div>
+      <dl class="evidence">
+        <div><dt>Data</dt><dd>Fyers 1-minute candles, 8 stocks, 241 clean trading days</dd></div>
+        <div><dt>Selection window</dt><dd>17 Oct 2025 to 31 Jul 2026, five versions compared</dd></div>
+        <div><dt>Holdout</dt><dd>1 Aug to 9 Oct 2026, the chosen version run once</dd></div>
+      </dl>
+      <div class="results-grid">
+        <div class="panel results-chart">
+          <h3>Net R per signal, by version</h3>
+          <div id="r-chart"></div>
+          <p class="small muted">Highlighted: the version picked on the selection window. On the holdout it made 10 trades and lost &#8377;39.9 after costs.</p>
+        </div>
+        <div class="ledger">
+          <h3>Where the R goes</h3>
+          <dl>
+            <div><dt>Signal, before costs</dt><dd class="num">&minus;0.06 R</dd></div>
+            <div><dt>Slippage</dt><dd class="num">&asymp; &minus;0.5 R</dd></div>
+            <div><dt>Fees</dt><dd class="num">&minus;0.57 R</dd></div>
+            <div class="total"><dt>Net per signal</dt><dd class="num">&asymp; &minus;1.0 R</dd></div>
+          </dl>
+          <p class="small muted">5-minute bars with a stop of about 0.2% of price. The signal is close to breakeven, but costs take roughly one full R. They only get small when stops are near 1% of price.</p>
+        </div>
+      </div>
+      <details class="more results-more">
+        <summary>Full results, including the holdout run</summary>
+        <div class="more-body">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Version</th><th class="n">Trades</th><th class="n">Win %</th><th class="n">Net &#8377;</th><th class="n">Max DD %</th><th class="n">Signals</th><th class="n">Signal win %</th><th class="n">Net R</th></tr>
+              </thead>
+              <tbody id="results-body"></tbody>
+            </table>
+          </div>
+          <p class="small muted">Source: <code>docs/experiments/2026-10-12-timeframe.md</code> in the repository.</p>
+        </div>
+      </details>
+      <details class="more results-more">
+        <summary>Every experiment so far, on data it was not tuned on</summary>
+        <div class="more-body">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Experiment</th><th>Out-of-sample test</th><th class="n">Net R per signal</th><th>Verdict</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1-minute vs 5-minute bars</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;1.10</td><td>Costs take about 1 R per trade</td></tr>
+                <tr><td>ML filter (LightGBM, walk-forward)</td><td>6 test months, May to Oct 2026</td><td class="n muted">n/a</td><td>AUC 0.499, same as shuffled labels. The filter never trades.</td></tr>
+                <tr><td>Wider stops on 15-minute bars, opening-range breakout</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;0.17</td><td>Costs now small, but the signal is about 0 R before costs</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small muted">Sources: <code>docs/experiments/</code> in the repository. Nothing here was changed after seeing the holdout.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section band" id="status">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow"><b>Chapter C</b> &middot; Build</p>
+        <h2>Phase 4 of 8.</h2>
+        <p>Each phase is built and tested before the next one starts. Real money comes last, and only after positive results on data the bot has never seen.</p>
+      </div>
+      <ol class="stages" id="stages"></ol>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="wrap faq-grid">
+      <div class="section-head">
+        <p class="eyebrow"><b>Questions</b></p>
+        <h2>What people ask first.</h2>
+      </div>
+      <div class="faq">
+        <details class="qa">
+          <summary>Does Trade-bot trade real money?</summary>
+          <div class="more-body"><p>No. It runs in paper mode by default. Live trading needs both <code>TRADING_MODE=live</code> and a confirmation file, and the plan only allows it after positive results on unseen data and four weeks of paper trading.</p></div>
+        </details>
+        <details class="qa">
+          <summary>Why are most signals rejected?</summary>
+          <div class="more-body"><p>Costs. On 5-minute bars the stop is about 0.2% of price, so fees and slippage come close to the whole amount at risk. The minimum edge rule blocks any trade whose target is not more than three times the estimated cost, and most signals stop there.</p></div>
+        </details>
+        <details class="qa">
+          <summary>What does R mean?</summary>
+          <div class="more-body"><p>R is the amount at risk on a trade: the distance from entry to stop, times the number of shares. A result of &minus;1 R means the trade lost what it risked. A result of +1.5 R means it gained one and a half times that.</p></div>
+        </details>
+        <details class="qa">
+          <summary>Which broker and data does it use?</summary>
+          <div class="more-body"><p>Historical candles come from Fyers. Orders are planned through Zerodha Kite Connect, inside one module that a test keeps separate from the rest of the code.</p></div>
+        </details>
+        <details class="qa">
+          <summary>Is any of this investment advice?</summary>
+          <div class="more-body"><p>No. Trade-bot is a personal research project, and its results so far are losses after costs. The <a href="terms.html">terms</a> explain this in full.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="wrap">
+      <div class="cta-copy">
+        <p class="eyebrow">Dashboard</p>
+        <h2>See every trade, and every refusal.</h2>
+      </div>
+      <div class="cta-side">
+        <p>Equity and drawdown, a candle chart for each trade, and the reason behind every rejected signal.</p>
+        <a class="btn light" href="dashboard.html">Open the dashboard</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="f-brand">
+      <a class="brand" href="./" aria-label="Trade-bot home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect class="mk-bg" width="32" height="32" rx="4"/><path class="mk-fg" d="M11 5v22" stroke-width="2"/><rect class="mk-fg" x="8" y="10" width="6" height="11"/><path class="mk-ac" d="M21 4v20" stroke-width="2"/><rect class="mk-ac" x="18" y="7" width="6" height="10"/></svg>Trade-bot</a>
+      <p>A research project for intraday trading on NSE cash equities. It runs in paper mode only. Nothing here is investment advice.</p>
+    </div>
+    <div>
+      <h2>Explore</h2>
+      <ul><li><a href="./#how">How it works</a></li><li><a href="./#results">Results</a></li><li><a href="./#status">Build status</a></li><li><a href="dashboard.html">Dashboard</a></li></ul>
+    </div>
+    <div>
+      <h2>Legal</h2>
+      <ul><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms and conditions</a></li></ul>
+    </div>
+    <p class="f-fine"><span>&copy; 2026 <span data-config="operatorName"></span></span><span>Paper mode only. Not investment advice.</span></p>
+  </div>
+</footer>
+<script src="assets/js/home.js"></script>
+</body>
+</html>

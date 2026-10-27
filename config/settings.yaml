@@ -6,6 +6,7 @@ kill_switch_file: config/KILL
 starting_capital: 1000
 stale_feed_seconds: 60
 timeframes: [1m, 5m]
+bar_minutes: 5             # detector bars; 5m halves cost drag vs 1m (docs/experiments/2026-10-12-timeframe.md)
 decision:
   mode: rules_only          # rules_only | rules_ml | rules_ml_jev
   ml_min_prob: 0.60
@@ -15,3 +16,19 @@ decision:
 detectors:
   atr_stop_mult: 1.0
   reward_risk: 1.5
+ml:
+  train_months: 6
+  val_months: 1
+  test_months: 1
+  min_val_candidates: 20
+  threshold_grid: [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+  seed: 7
+  lgb_params:
+    n_estimators: 200
+    learning_rate: 0.05
+    num_leaves: 15
+    min_child_samples: 50
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 1.0

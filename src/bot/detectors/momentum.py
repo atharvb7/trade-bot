@@ -15,8 +15,9 @@ import numpy as np
 import pandas as pd
 
 from bot.config import DetectorCfg
+from bot.data.sessions import SESSION_OPEN
 from bot.detectors.base import Candidate, Direction, Frame
-from bot.detectors.cross_section import SESSION_OPEN, CrossSection
+from bot.detectors.cross_section import CrossSection
 
 
 def _hhmm(s: str) -> time:

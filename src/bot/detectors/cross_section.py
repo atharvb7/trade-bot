@@ -13,14 +13,11 @@ previous closed bar).
 
 from __future__ import annotations
 
-from datetime import time
-
 import numpy as np
 import pandas as pd
 
+from bot.data.sessions import SESSION_OPEN
 from bot.detectors.base import Frame
-
-SESSION_OPEN = time(9, 15)
 
 
 def return_since_open(fr: Frame) -> pd.Series:

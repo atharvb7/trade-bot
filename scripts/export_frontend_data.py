@@ -90,7 +90,10 @@ def export_run(run_id: str, max_trades: int) -> dict[str, Any]:
         e = rd.equity.copy()
         e["ts"] = pd.to_datetime(e["ts"])
         last = e.groupby(e["ts"].dt.normalize())["equity"].last()
-        eq_daily = [{"date": d.strftime("%Y-%m-%d"), "equity": clean(v)} for d, v in last.items()]
+        eq_daily = [
+            {"date": pd.Timestamp(str(d)).strftime("%Y-%m-%d"), "equity": clean(v)}
+            for d, v in last.items()
+        ]
 
     shown = trades.tail(max_trades) if len(trades) else trades
     bars_by_key: dict[str, list[list[Any]]] = {}
@@ -149,7 +152,7 @@ def export_run(run_id: str, max_trades: int) -> dict[str, Any]:
         f"{meta.get('bar_minutes', 1)}m bars, {cfg.get('decision_mode', meta.get('mode', ''))}, "
         f"min-edge {min_edge}x" + (", synthetic data" if synthetic else ", market data")
     )
-    return clean(
+    out: dict[str, Any] = clean(
         {
             "id": run_id,
             "label": label,
@@ -189,6 +192,7 @@ def export_run(run_id: str, max_trades: int) -> dict[str, Any]:
             ),
         }
     )
+    return out
 
 
 def main() -> None:

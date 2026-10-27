@@ -2,6 +2,8 @@
 
 import json
 
+import pandas as pd
+
 from bot.config import load_config
 from bot.data.quality import check
 from bot.data.sessions import clean_1m
@@ -14,7 +16,7 @@ for sym in [*cfg.watchlist.symbols, cfg.watchlist.index]:
     clean, notes = clean_1m(raw)
     rep["after_cleaning"] = {
         "bars": len(clean),
-        "days": int(clean.index.normalize().nunique()),
+        "days": int(pd.DatetimeIndex(clean.index).normalize().nunique()),
         **notes,
     }
     print(json.dumps(rep, indent=1))

@@ -11,6 +11,7 @@ day-block bootstrap 90% interval because candidates on the same day are correlat
 
 import json
 from datetime import date, datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -59,7 +60,13 @@ def day_bootstrap(df: pd.DataFrame, n: int = 2000, seed: int = 0) -> tuple[float
     return float(np.percentile(means, 5)), float(np.percentile(means, 95))
 
 
-def run(base: Config, tables: dict[str, pd.DataFrame], v: tuple, win: tuple, tag: str) -> dict:
+def run(
+    base: Config,
+    tables: dict[str, pd.DataFrame],
+    v: tuple[Any, ...],
+    win: tuple[Any, ...],
+    tag: str,
+) -> dict[str, Any]:
     name, dets, atr_mult, rr = v
     cfg = base.model_copy(deep=True)
     cfg.app.detectors.atr_stop_mult, cfg.app.detectors.reward_risk = atr_mult, rr
@@ -97,7 +104,7 @@ def run(base: Config, tables: dict[str, pd.DataFrame], v: tuple, win: tuple, tag
     return {"variant": name, "window": tag, "metrics": m, "edge": edge}
 
 
-def row(r: dict) -> dict:
+def row(r: dict[str, Any]) -> dict[str, Any]:
     m, e = r["metrics"], r["edge"]
     return {
         "variant": r["variant"],

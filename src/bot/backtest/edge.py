@@ -1,7 +1,8 @@
 """Candidate-level edge: every tradeable candidate's forward outcome in R multiples.
 
 Independent of the account-level caps (3 trades/day, losing streak), so it measures whether
-the detector itself has an edge. 1R = distance from signal price to stop.
+the detector itself has an edge. 1R = distance from signal price to stop (the same distance
+the risk manager sizes on, so net R x 1% of equity = the engine's rupee P&L for that trade).
 """
 
 from __future__ import annotations
@@ -20,11 +21,14 @@ def candidate_r(dec: pd.DataFrame, costs: CostModel) -> pd.DataFrame:
         return dec.assign(gross_r=[], net_r=[], fee_r=[])
     d = dec[~dec["final_status"].isin(UNTRADEABLE) & (dec["outcome"] != "no_entry")].copy()
     risk = (d["entry"] - d["stop"]).abs()
-    sign = np.where(d["direction"] == "long", 1.0, -1.0)
-    exit_px = d["entry"] + sign * d["hyp_pnl_per_share"]
+    if "hyp_entry_price" in d:  # fees on the simulated fill and exit, exactly as the engine
+        entry_px, exit_px = d["hyp_entry_price"], d["hyp_exit_price"]
+    else:  # older decision files: approximate both legs from the signal price
+        sign = np.where(d["direction"] == "long", 1.0, -1.0)
+        entry_px, exit_px = d["entry"], d["entry"] + sign * d["hyp_pnl_per_share"]
     fees = [
         costs.round_trip_fees(str(di), float(e), float(x))
-        for di, e, x in zip(d["direction"], d["entry"], exit_px, strict=True)
+        for di, e, x in zip(d["direction"], entry_px, exit_px, strict=True)
     ]
     d["fee_r"] = np.asarray(fees) / risk
     d["gross_r"] = d["hyp_pnl_per_share"] / risk

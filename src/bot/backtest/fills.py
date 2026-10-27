@@ -2,6 +2,20 @@
 
 from __future__ import annotations
 
+from datetime import time
+
+import pandas as pd
+
+
+def must_square_off(bar_open: pd.Timestamp, bar_minutes: int, square_off: time) -> bool:
+    """True if a position must be closed at this bar's OPEN.
+
+    A bar is held only if it closes at or before the square-off time, so no position is
+    ever exposed past square-off: with 1m/5m bars this exits at the 15:10 open; with 15m
+    bars the 15:00-15:15 bar straddles 15:10, so the exit is at its 15:00 open.
+    """
+    return (bar_open + pd.Timedelta(minutes=bar_minutes)).time() > square_off
+
 
 def check_exit(
     direction: str, stop: float, target: float, o: float, h: float, low: float

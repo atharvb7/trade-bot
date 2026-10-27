@@ -58,13 +58,11 @@ def build_dataset(
                 c = det.detect(sym, fr, int(i), cfg.app.detectors)
                 if c is None:
                     continue
-                out = simulate_outcome(c, fr, int(i), cfg.costs.slippage_pct, sq_off)
+                out = simulate_outcome(c, fr, int(i), cfg.costs.slippage_pct, sq_off, bar_minutes)
                 if out.reason == "no_entry":
                     continue
                 risk = abs(c.entry - c.stop)
-                sign = 1 if c.direction == "long" else -1
-                exit_px = c.entry + sign * out.pnl_per_share
-                fee = costs.round_trip_fees(c.direction, c.entry, exit_px)
+                fee = costs.round_trip_fees(c.direction, out.entry_price, out.exit_price)
                 rows.append(
                     {
                         "symbol": sym,

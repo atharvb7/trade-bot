@@ -245,3 +245,22 @@ def test_fill_never_exceeds_cash_after_gap() -> None:
     t = trades.iloc[0]
     assert t["qty"] * t["entry_price"] <= cfg.app.starting_capital
     assert t["qty"] == 8
+
+
+def test_previous_day_features_skip_holidays_and_first_bar_is_causal() -> None:
+    # Tuesday is a holiday: Wednesday's "previous day" must be Monday, and the first bar
+    # of Wednesday uses only Monday's completed session plus its own (closed) bar.
+    stock = make_1m(days=3, seed=3)
+    stock = stock[stock.index.normalize() != pd.Timestamp("2026-01-06")]
+    nifty = make_1m(days=3, seed=4, base=20000)
+    nifty = nifty[nifty.index.normalize() != pd.Timestamp("2026-01-06")]
+    f = compute_features(stock, nifty)
+    mon = stock[stock.index.normalize() == pd.Timestamp("2026-01-05")]
+    wed_first = pd.Timestamp("2026-01-07 09:15")
+    open_, close = stock.loc[wed_first, "open"], stock.loc[wed_first, "close"]
+    assert f.loc[wed_first, "gap_pct"] == pytest.approx((open_ / mon["close"].iloc[-1] - 1) * 100)
+    assert f.loc[wed_first, "dist_prev_high_pct"] == pytest.approx(
+        (close / mon["high"].max() - 1) * 100
+    )
+    assert np.isnan(f.loc[wed_first, "dist_or_high_pct"])  # opening range not complete yet
+    assert f.loc[wed_first, "minutes_since_open"] == 0

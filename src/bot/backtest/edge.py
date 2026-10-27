@@ -44,3 +44,15 @@ def edge_summary(d: pd.DataFrame, reward_risk: float) -> dict[str, float]:
         "mean_net_r": float(d["net_r"].mean()),
         "median_risk_pct": float(((d["entry"] - d["stop"]).abs() / d["entry"] * 100).median()),
     }
+
+
+def day_bootstrap(df: pd.DataFrame, n: int = 2000, seed: int = 0) -> tuple[float, float]:
+    """90% CI of mean net R, resampling whole trading days (needs decision_ts and net_r)."""
+    if df.empty:
+        return float("nan"), float("nan")
+    g = df.groupby(df["decision_ts"].dt.normalize())["net_r"].agg(["sum", "count"])
+    s, c = g["sum"].to_numpy(), g["count"].to_numpy()
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(g), size=(n, len(g)))
+    means = s[idx].sum(axis=1) / c[idx].sum(axis=1)
+    return float(np.percentile(means, 5)), float(np.percentile(means, 95))

@@ -23,13 +23,15 @@ from bot.backtest.costs import CostModel
 from bot.backtest.edge import candidate_r, day_bootstrap
 from bot.backtest.engine import Backtester
 from bot.backtest.metrics import compute_metrics
-from bot.config import ROOT, load_config
+from bot.backtest.outcome import simulate_outcome
+from bot.config import ROOT, Config, load_config
 from bot.data.store import read_1m
 from bot.detectors import ALL_DETECTORS
-from bot.detectors.base import Detector, Frame
+from bot.detectors.base import Candidate, Detector, Frame
 from bot.detectors.orb_range import RangeORB
 from bot.features.engine import bar_table
 from bot.ml.dataset import build_dataset
+from bot.risk.manager import parse_hhmm
 
 SELECT = (date(2025, 10, 17), date(2026, 7, 31))
 HOLDOUT_START = pd.Timestamp("2026-08-01")
@@ -51,6 +53,36 @@ def summarise(d: pd.DataFrame) -> dict[str, Any]:
         "outcomes": d["outcome"].value_counts().to_dict(),
         "by_setup": d.groupby("setup")["net_r"].agg(["count", "mean"]).round(4).to_dict("index"),
     }
+
+
+def exits_on_1m(cands: pd.DataFrame, raw: dict[str, pd.DataFrame], c: Config) -> pd.DataFrame:
+    """Diagnostic: replay each candidate's exit on 1m bars (same signal, stop, target and
+    entry open), so square-off is exactly 15:10 and stop-vs-target inside one N-minute bar
+    is resolved minute by minute. Measures the cost of evaluating exits on N-minute bars."""
+    costs, slip = CostModel(c.costs), c.costs.slippage_pct
+    sq_off = parse_hhmm(c.risk.square_off_time)
+    m1 = {s: Frame.from_df(df) for s, df in raw.items()}
+    pos = {s: {ts: k for k, ts in enumerate(fr.index)} for s, fr in m1.items()}
+    rows = []
+    for r in cands.itertuples():
+        sym = str(r.symbol)
+        i = pos[sym][pd.Timestamp(str(r.decision_ts))] - 1  # 1m bar before the entry open
+        cand = Candidate(sym, str(r.setup), r.direction, r.ts, r.entry, r.stop, r.target, 0.0)  # type: ignore[arg-type]
+        out = simulate_outcome(cand, m1[sym], i, slip, sq_off, 1)
+        risk = abs(float(r.entry) - float(r.stop))  # type: ignore[arg-type]
+        fee = costs.round_trip_fees(str(r.direction), out.entry_price, out.exit_price)
+        rows.append(
+            {
+                "decision_ts": r.decision_ts,
+                "setup": r.setup,
+                "label": out.label,
+                "outcome": out.reason,
+                "nmin_outcome": r.outcome,
+                "gross_r": out.pnl_per_share / risk,
+                "net_r": (out.pnl_per_share - fee) / risk,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def main(tag: str) -> None:
@@ -76,8 +108,11 @@ def main(tag: str) -> None:
         res = Backtester(c, frames, detectors=dets, bar_minutes=bm).run()
         eng = candidate_r(res.decisions, CostModel(c.costs))
         eng = eng.assign(decision_ts=eng["ts"] + pd.Timedelta(minutes=bm))
+        one = exits_on_1m(cands, raw, c)
+        flips = pd.crosstab(one["nmin_outcome"], one["outcome"]).to_dict("index")
         results[name] = {
             "all_candidates": summarise(cands),
+            "all_candidates_exits_on_1m": {**summarise(one), "nmin_vs_1m_outcome": flips},
             "engine_candidates": summarise(eng),
             "backtest": compute_metrics(res.trades, res.start_capital, res.n_days),
         }
@@ -89,6 +124,8 @@ def main(tag: str) -> None:
             f"n={e['candidates']} net R {e['mean_net_r']:+.4f} | trades "
             f"{bt['trades']} net ₹ {bt.get('net_pnl', 0.0):+.1f}"
         )
+        o = results[name]["all_candidates_exits_on_1m"]
+        print(f"   exits on 1m bars: net R {o['mean_net_r']:+.4f}  outcome flips {flips}")
     out = ROOT / "data" / "experiments" / "audit" / f"{tag}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=1, default=str))

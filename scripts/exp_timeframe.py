@@ -11,6 +11,7 @@ Usage: python scripts/exp_timeframe.py
 
 import json
 from datetime import date, datetime
+from typing import Any
 
 import pandas as pd
 
@@ -44,8 +45,12 @@ def window(tables: dict[str, pd.DataFrame], lo: date, hi: date) -> dict[str, Fra
 
 
 def run(
-    base: Config, tables: dict[int, dict[str, pd.DataFrame]], v: tuple, win: tuple, tag: str
-) -> dict:
+    base: Config,
+    tables: dict[int, dict[str, pd.DataFrame]],
+    v: tuple[Any, ...],
+    win: tuple[Any, ...],
+    tag: str,
+) -> dict[str, Any]:
     name, bm, atr_mult, rr = v
     cfg = base.model_copy(deep=True)
     cfg.app.detectors.atr_stop_mult, cfg.app.detectors.reward_risk = atr_mult, rr
@@ -76,7 +81,7 @@ def run(
     }
 
 
-def row(r: dict) -> dict:
+def row(r: dict[str, Any]) -> dict[str, Any]:
     m, e = r["metrics"], r["edge"]
     return {
         "variant": r["variant"],

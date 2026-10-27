@@ -26,7 +26,7 @@ ap.add_argument("--min-edge", type=float, default=None, help="override min-edge 
 args = ap.parse_args()
 
 cfg = load_config()
-cfg.app.decision.mode = args.mode  # type: ignore[assignment]
+cfg.app.decision.mode = args.mode
 if args.min_edge is not None:
     cfg.risk.min_edge_cost_multiple = args.min_edge
 frames: dict[str, Frame] = {}

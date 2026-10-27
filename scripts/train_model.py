@@ -82,7 +82,7 @@ print("calibration (OOS):\n" + cal.round(3).to_string(index=False))
 # 3. shuffled-label sanity check (train+val labels shuffled; average over seeds) -----------
 shuf_aucs = []
 for seed in range(args.shuffle_seeds):
-    _, s_oos, _ = walk_forward(
+    _s_models, s_oos, _s_folds = walk_forward(
         data, cfg.app.ml.model_copy(update={"seed": seed}), shuffle_labels=True
     )
     shuf_aucs.append(float(roc_auc_score(s_oos["label"], s_oos["ml_prob"])))
@@ -141,7 +141,7 @@ for name, mode, mult in [
     ("rules_ml_costx2", "rules_ml", 2.0),
 ]:
     res, fr = chained(cfg, mode, mult)
-    _, met = save_run(
+    _run_dir, met = save_run(
         res,
         fr,
         f"{STAMP}_wf_{name}_{bm}m",

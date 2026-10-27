@@ -18,7 +18,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="announce"><div class="wrap"><span>Latest experiment: wider stops cut costs to about 0.15 R, but the signal itself is still about zero.</span><a href="#results">Read the results</a></div></div>
+<div class="announce"><div class="wrap"><span>Latest: 16 more setups and a backtester audit. Still no edge after costs.</span><a href="#results">Read the results</a></div></div>
 <header class="site-header">
   <div class="wrap">
     <a class="brand" href="./" aria-label="Trade-bot home">
@@ -100,7 +100,7 @@
         <div class="stat"><span class="v">8</span><span class="k">Stocks watched</span><span class="s">Low-priced NSE names, so &#8377;1,000 buys at least one share.</span></div>
         <div class="stat"><span class="v">3</span><span class="k">Trade setups</span><span class="s">Opening range breakout, VWAP reclaim and trend pullback.</span></div>
         <div class="stat"><span class="v">8</span><span class="k">Risk checks</span><span class="s">Run in a fixed order before any order is placed.</span></div>
-        <div class="stat"><span class="v">72</span><span class="k">Tests passing</span><span class="s">Including checks that no feature reads a future candle.</span></div>
+        <div class="stat"><span class="v">135</span><span class="k">Tests passing</span><span class="s">Including checks that no feature reads a future candle.</span></div>
       </div>
     </div>
   </section>
@@ -174,6 +174,9 @@
                 <tr><td>1-minute vs 5-minute bars</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;1.10</td><td>Costs take about 1 R per trade</td></tr>
                 <tr><td>ML filter (LightGBM, walk-forward)</td><td>6 test months, May to Oct 2026</td><td class="n muted">n/a</td><td>AUC 0.499, same as shuffled labels. The filter never trades.</td></tr>
                 <tr><td>Wider stops on 15-minute bars, opening-range breakout</td><td>Holdout, 1 Aug to 9 Oct 2026</td><td class="n loss">&minus;0.17</td><td>Costs now small, but the signal is about 0 R before costs</td></tr>
+                <tr><td>8 mean-reversion fades (VWAP, failed breakout, gap, RSI 2)</td><td>Validation, May to Jul 2026</td><td class="n loss">&minus;0.02 to &minus;0.28</td><td>None positive. Fades have no edge either.</td></tr>
+                <tr><td>8 momentum and relative-strength setups</td><td>Validation, May to Jul 2026</td><td class="n loss">&minus;0.05 to &minus;0.30</td><td>None positive. The morning move does not carry into the afternoon.</td></tr>
+                <tr><td>Backtester audit and execution costs</td><td>Selection window</td><td class="n muted">n/a</td><td>5 small bugs fixed, none changes a result. 0.05% slippage is about twice the measured spread, so it stays.</td></tr>
               </tbody>
             </table>
           </div>

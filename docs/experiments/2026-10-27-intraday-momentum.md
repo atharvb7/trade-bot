@@ -154,3 +154,9 @@ costs are only about 0.1–0.2R, and the signal before costs is about zero. **Th
 recommends no holdout run** and no config changes. Going live is not justified on this
 evidence. These detectors stay in the codebase (tested, look-ahead-safe) for later
 cross-sectional work, but no variant is enabled.
+
+## Note after merge (2026-10-27)
+These numbers were produced on the backtester before the fixes in
+`docs/experiments/2026-10-27-backtest-audit.md`. On 15-minute bars the main fix (square-off at
+the 15:00 open instead of the 15:15 open) lowered net R by about 0.014R for RangeORB(60), so the
+results above, if anything, slightly flatter these variants. The conclusion is unchanged.

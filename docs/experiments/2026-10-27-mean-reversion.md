@@ -192,3 +192,9 @@ fails 3 of 4 checks. **Recommendation: no holdout run for this track and no conf
 changes.** The gap fade is the only idea worth revisiting, and only with more data (longer
 history or more symbols) to reach a meaningful sample. It would need a fresh
 pre-registration, not a retune on these results.
+
+## Note after merge (2026-10-27)
+These numbers were produced on the backtester before the fixes in
+`docs/experiments/2026-10-27-backtest-audit.md`. On 15-minute bars the main fix (square-off at
+the 15:00 open instead of the 15:15 open) lowered net R by about 0.014R for RangeORB(60), so the
+results above, if anything, slightly flatter these variants. The conclusion is unchanged.

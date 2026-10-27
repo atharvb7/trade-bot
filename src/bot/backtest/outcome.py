@@ -1,6 +1,7 @@
 """Forward outcome of a candidate (used for rejected-candidate analysis and ML labels).
 
-Entry = next bar open + slippage; exits per ``check_exit``; square-off at 15:10 counts as timeout.
+Entry = next bar open + slippage; exits per ``check_exit``; square-off at 15:10 counts as timeout
+(``must_square_off``), as does the end of a day whose data stops before square-off.
 Labels use FUTURE bars by design — they must never be used as features.
 """
 
@@ -11,7 +12,7 @@ from datetime import time
 
 import pandas as pd
 
-from bot.backtest.fills import adverse, check_exit
+from bot.backtest.fills import adverse, check_exit, must_square_off
 from bot.detectors.base import Candidate, Frame
 
 
@@ -19,16 +20,22 @@ from bot.detectors.base import Candidate, Frame
 class Outcome:
     label: int  # 1 target hit before stop; 0 stop or timeout
     reason: str  # target | stop | timeout | no_entry
-    exit_price: float
+    exit_price: float  # after slippage (stop / timeout); target fills are limit orders
     pnl_per_share: float  # gross, after slippage, before fees
+    entry_price: float  # next-bar open + slippage (the signal close if no_entry)
 
 
 def simulate_outcome(
-    c: Candidate, fr: Frame, i: int, slippage_pct: float, square_off: time = time(15, 10)
+    c: Candidate,
+    fr: Frame,
+    i: int,
+    slippage_pct: float,
+    square_off: time = time(15, 10),
+    bar_minutes: int = 1,
 ) -> Outcome:
     n = len(fr)
     if i + 1 >= n or fr.index[i + 1].date() != fr.index[i].date():
-        return Outcome(0, "no_entry", c.entry, 0.0)
+        return Outcome(0, "no_entry", c.entry, 0.0, c.entry)
     entry = adverse(float(fr["open"][i + 1]), c.direction, True, slippage_pct)
     sign = 1 if c.direction == "long" else -1
     day = fr.index[i].date()
@@ -37,9 +44,9 @@ def simulate_outcome(
         if fr.index[j].date() != day:
             break
         last = j
-        if fr.index[j].time() >= square_off:
+        if must_square_off(fr.index[j], bar_minutes, square_off):
             px = adverse(float(fr["open"][j]), c.direction, False, slippage_pct)
-            return Outcome(0, "timeout", px, sign * (px - entry))
+            return Outcome(0, "timeout", px, sign * (px - entry), entry)
         hit = check_exit(
             c.direction,
             c.stop,
@@ -57,9 +64,11 @@ def simulate_outcome(
                 "target" if why.startswith("target") else "stop",
                 px,
                 sign * (px - entry),
+                entry,
             )
-    px = float(fr["close"][last])
-    return Outcome(0, "timeout", px, sign * (px - entry))
+    # Day (or data) ended before square-off: market exit at the last close, like the engine.
+    px = adverse(float(fr["close"][last]), c.direction, False, slippage_pct)
+    return Outcome(0, "timeout", px, sign * (px - entry), entry)
 
 
 def pd_ts(x: object) -> pd.Timestamp:

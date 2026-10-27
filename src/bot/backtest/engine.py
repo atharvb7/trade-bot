@@ -4,11 +4,14 @@ One chronological loop over bar-open timestamps across all symbols. On each time
   1. fill orders queued on the previous bar's close (next-bar open + slippage),
   2. check exits (stop / target / 15:10 square-off) on the current bar,
   3. run detectors on bars that just opened-and-closed; gate -> risk -> queue an order.
+At a day boundary, any position still open (the day's data ended before square-off) is
+closed at that day's last close, and unfilled orders are cancelled: nothing carries overnight.
 Detectors, gate and risk manager are the same objects the live runner will use.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -16,7 +19,7 @@ from typing import Any
 import pandas as pd
 
 from bot.backtest.costs import CostModel
-from bot.backtest.fills import adverse, check_exit
+from bot.backtest.fills import adverse, check_exit, must_square_off
 from bot.backtest.outcome import simulate_outcome
 from bot.config import Config
 from bot.decision.gate import JevAnswer, evaluate_gate
@@ -123,6 +126,13 @@ class Backtester:
 
         for ts in all_ts:
             if ts.date() != cur_day:
+                for s, op in list(positions.items()):  # day ended before square-off
+                    k = pos_idx[s][last_ts[s]]
+                    px_eod = float(self.frames[s]["close"][k])
+                    close_position(op, last_ts[s], px_eod, "square_off_eod", True)
+                for pend_eod in pending.values():
+                    decisions[pend_eod.decision_id]["final_status"] = "cancelled_eod"
+                pending.clear()
                 cur_day = ts.date()
                 days_seen.add(cur_day)
                 st.start_of_day_equity, st.trades_today, st.consecutive_losses = equity, 0, 0
@@ -137,22 +147,21 @@ class Backtester:
                 if pend is not None:
                     c = pend.cand
                     px = adverse(o, c.direction, True, slip)
-                    positions[s] = Position(
-                        s,
-                        c.setup,
-                        c.direction,
-                        pend.qty,
-                        ts,
-                        px,
-                        c.stop,
-                        c.target,
-                        pend.decision_id,
-                    )
-                    st.trades_today += 1
+                    # Sized on the signal close; a gap at the fill must not breach the cash
+                    # cap (rule 10, no leverage). Only ever shrinks qty, never rounds up.
+                    cash = equity * cfg.risk.max_position_value_pct_of_cash / 100
+                    qty = min(pend.qty, math.floor(cash / px))
+                    if qty < 1:
+                        decisions[pend.decision_id]["final_status"] = "cancelled_cash"
+                    else:
+                        positions[s] = Position(
+                            s, c.setup, c.direction, qty, ts, px, c.stop, c.target, pend.decision_id
+                        )
+                        st.trades_today += 1
                 p = positions.get(s)
                 if p is None:
                     continue
-                if ts.time() >= sq_off:
+                if must_square_off(ts, self.bar_minutes, sq_off):
                     close_position(p, ts, o, "square_off", True)
                     continue
                 hit = check_exit(p.direction, p.stop, p.target, o, h, lo)
@@ -190,7 +199,7 @@ class Backtester:
                         else f"rejected_risk_{risk.reason}"  # type: ignore[union-attr]
                     )
                 )
-                out = simulate_outcome(c, fr, i, slip)
+                out = simulate_outcome(c, fr, i, slip, sq_off, self.bar_minutes)
                 did = len(decisions)
                 decisions.append(
                     {
@@ -209,6 +218,8 @@ class Backtester:
                         "outcome": out.reason,
                         "label": out.label,
                         "hyp_pnl_per_share": out.pnl_per_share,
+                        "hyp_entry_price": out.entry_price,
+                        "hyp_exit_price": out.exit_price,
                         **{f"f_{k}": v for k, v in c.features.items()},
                     }
                 )

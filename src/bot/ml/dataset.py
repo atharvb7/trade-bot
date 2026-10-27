@@ -58,8 +58,16 @@ def build_dataset(
                 c = det.detect(sym, fr, int(i), cfg.app.detectors)
                 if c is None:
                     continue
-                out = simulate_outcome(c, fr, int(i), cfg.costs.slippage_pct, sq_off, bar_minutes)
-                if out.reason == "no_entry":
+                out = simulate_outcome(
+                    c,
+                    fr,
+                    int(i),
+                    cfg.costs.slippage_pct,
+                    sq_off,
+                    bar_minutes=bar_minutes,
+                    execution=cfg.app.execution,
+                )
+                if out.reason in ("no_entry", "no_fill"):
                     continue
                 risk = abs(c.entry - c.stop)
                 fee = costs.round_trip_fees(c.direction, out.entry_price, out.exit_price)
@@ -76,6 +84,9 @@ def build_dataset(
                         "label": out.label,
                         "outcome": out.reason,
                         "pnl_per_share": out.pnl_per_share,
+                        "fill_price": out.entry_price,
+                        "exit_price": out.exit_price,
+                        "exit_ts": out.exit_ts,
                         "gross_r": out.pnl_per_share / risk,
                         "net_r": (out.pnl_per_share - fee) / risk,
                         **candidate_features(c, fr, int(i)),

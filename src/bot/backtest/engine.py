@@ -14,12 +14,13 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import date
+from math import inf
 from typing import Any
 
 import pandas as pd
 
 from bot.backtest.costs import CostModel
-from bot.backtest.fills import adverse, check_exit, must_square_off
+from bot.backtest.fills import adverse, check_exit, limit_filled, limit_price, must_square_off
 from bot.backtest.outcome import simulate_outcome
 from bot.config import Config
 from bot.decision.gate import JevAnswer, evaluate_gate
@@ -46,6 +47,8 @@ class Pending:
     cand: Candidate
     qty: int
     decision_id: int
+    limit: float | None = None  # passive entry limit; None = market order at next open
+    bars_left: int = 0
 
 
 @dataclass
@@ -78,6 +81,8 @@ class Backtester:
 
     def run(self) -> BacktestResult:
         cfg, slip = self.cfg, self.cfg.costs.slippage_pct
+        ex = cfg.app.execution
+        through = ex.target_fill == "through"
         sq_off = parse_hhmm(cfg.risk.square_off_time)
         pos_idx = {s: {ts: k for k, ts in enumerate(fr.index)} for s, fr in self.frames.items()}
         all_ts = sorted(set().union(*[set(fr.index) for fr in self.frames.values()]))
@@ -144,27 +149,51 @@ class Backtester:
                 last_ts[s] = ts
                 o, h, lo = float(fr["open"][i]), float(fr["high"][i]), float(fr["low"][i])
                 pend = pending.pop(s, None)
+                filled_limit = False
                 if pend is not None:
                     c = pend.cand
-                    px = adverse(o, c.direction, True, slip)
-                    # Sized on the signal close; a gap at the fill must not breach the cash
-                    # cap (rule 10, no leverage). Only ever shrinks qty, never rounds up.
-                    cash = equity * cfg.risk.max_position_value_pct_of_cash / 100
-                    qty = min(pend.qty, math.floor(cash / px))
-                    if qty < 1:
-                        decisions[pend.decision_id]["final_status"] = "cancelled_cash"
-                    else:
-                        positions[s] = Position(
-                            s, c.setup, c.direction, qty, ts, px, c.stop, c.target, pend.decision_id
-                        )
-                        st.trades_today += 1
+                    px: float | None = None
+                    if pend.limit is None:
+                        px = adverse(o, c.direction, True, slip)
+                    elif not must_square_off(ts, self.bar_minutes, sq_off) and (
+                        ts.date() == c.ts.date()
+                    ):
+                        if limit_filled(c.direction, pend.limit, h, lo):
+                            px, filled_limit = pend.limit, True
+                        elif pend.bars_left > 1:
+                            pend.bars_left -= 1
+                            pending[s] = pend
+                    if px is not None:
+                        # Sized on the signal close; a gap at the fill must not breach the cash
+                        # cap (rule 10, no leverage). Only ever shrinks qty, never rounds up.
+                        cash = equity * cfg.risk.max_position_value_pct_of_cash / 100
+                        qty = min(pend.qty, math.floor(cash / px))
+                        if qty < 1:
+                            decisions[pend.decision_id]["final_status"] = "cancelled_cash"
+                        else:
+                            positions[s] = Position(
+                                s,
+                                c.setup,
+                                c.direction,
+                                qty,
+                                ts,
+                                px,
+                                c.stop,
+                                c.target,
+                                pend.decision_id,
+                            )
+                            st.trades_today += 1
+                    elif s not in pending:
+                        decisions[pend.decision_id]["final_status"] = "cancelled_unfilled"
                 p = positions.get(s)
                 if p is None:
                     continue
                 if must_square_off(ts, self.bar_minutes, sq_off):
                     close_position(p, ts, o, "square_off", True)
                     continue
-                hit = check_exit(p.direction, p.stop, p.target, o, h, lo)
+                # On a limit's fill bar the price order is unknown: allow the stop, not the target.
+                tgt = p.target if not filled_limit else (inf if p.direction == "long" else -inf)
+                hit = check_exit(p.direction, p.stop, tgt, o, h, lo, through)
                 if hit:
                     px, why = hit
                     close_position(p, ts, px, why, why.startswith("stop"))
@@ -199,7 +228,9 @@ class Backtester:
                         else f"rejected_risk_{risk.reason}"  # type: ignore[union-attr]
                     )
                 )
-                out = simulate_outcome(c, fr, i, slip, sq_off, self.bar_minutes)
+                out = simulate_outcome(
+                    c, fr, i, slip, sq_off, bar_minutes=self.bar_minutes, execution=ex
+                )
                 did = len(decisions)
                 decisions.append(
                     {
@@ -224,7 +255,12 @@ class Backtester:
                     }
                 )
                 if risk and risk.approved:
-                    pending[c.symbol] = Pending(c, risk.qty, did)
+                    lim = (
+                        limit_price(c.direction, c.entry, ex.limit_offset_ticks)
+                        if ex.entry_order == "limit"
+                        else None
+                    )
+                    pending[c.symbol] = Pending(c, risk.qty, did, lim, ex.limit_cancel_bars)
 
             eq_rows.append({"ts": ts, "equity": equity})
 

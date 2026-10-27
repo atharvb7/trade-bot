@@ -13,9 +13,9 @@ import json
 from datetime import date, datetime
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
+from bot.backtest.edge import day_bootstrap
 from bot.backtest.engine import Backtester
 from bot.backtest.report import save_run
 from bot.config import ROOT, Config, load_config
@@ -46,18 +46,6 @@ def window(tables: dict[str, pd.DataFrame], lo: date, hi: date) -> dict[str, Fra
         d = pd.DatetimeIndex(t.index).date
         out[s] = Frame.from_df(t[(d >= lo) & (d <= hi)])
     return out
-
-
-def day_bootstrap(df: pd.DataFrame, n: int = 2000, seed: int = 0) -> tuple[float, float]:
-    """90% CI of mean net R, resampling whole trading days."""
-    if df.empty:
-        return float("nan"), float("nan")
-    g = df.groupby(df["decision_ts"].dt.normalize())["net_r"].agg(["sum", "count"])
-    s, c = g["sum"].to_numpy(), g["count"].to_numpy()
-    rng = np.random.default_rng(seed)
-    idx = rng.integers(0, len(g), size=(n, len(g)))
-    means = s[idx].sum(axis=1) / c[idx].sum(axis=1)
-    return float(np.percentile(means, 5)), float(np.percentile(means, 95))
 
 
 def run(

@@ -45,6 +45,22 @@ class MLCfg(BaseModel):
     }
 
 
+class ExecutionCfg(BaseModel):
+    """How backtest/paper fills are simulated (docs/experiments/2026-10-27-execution-realism.md).
+
+    Defaults reproduce the original model: marketable entry at next-bar open + slippage and a
+    target that fills when the bar merely touches it.
+    """
+
+    entry_order: Literal["market", "limit"] = "market"
+    # Passive limit at the signal price, moved this many ticks AWAY from the market (0 = at it).
+    limit_offset_ticks: int = 0
+    # Detector bars the limit rests for before it is cancelled.
+    limit_cancel_bars: int = 1
+    # "through" = a target limit fills only when the bar trades at least one tick beyond it.
+    target_fill: Literal["touch", "through"] = "touch"
+
+
 class AppCfg(BaseModel):
     timezone: str = "Asia/Kolkata"
     database_url: str = "sqlite:///data/bot.db"
@@ -58,6 +74,7 @@ class AppCfg(BaseModel):
     decision: DecisionCfg = DecisionCfg()
     ml: MLCfg = MLCfg()
     detectors: DetectorCfg = DetectorCfg()
+    execution: ExecutionCfg = ExecutionCfg()
 
 
 class RiskCfg(BaseModel):

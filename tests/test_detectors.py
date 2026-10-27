@@ -1,7 +1,9 @@
 import numpy as np
+import pandas as pd
 
 from bot.config import DetectorCfg
 from bot.detectors import ORB, TrendPullback, VWAPReclaim
+from bot.detectors.base import Frame
 from tests.helpers import frame
 
 CFG = DetectorCfg(atr_stop_mult=1.0, reward_risk=1.5)
@@ -119,3 +121,27 @@ def test_trend_pullback_rejects_no_touch_or_no_trend() -> None:
         rsi_14=50.0,
     )
     assert TrendPullback().detect("X", chop, 0, CFG) is None
+
+
+def test_vwap_reclaim_lookback_stays_in_today() -> None:
+    # 5m bars: 09:35 is 20 min after open, so the 5-bar lookback would reach yesterday's
+    # 15:25 bar. Yesterday's -0.5% must not count as today's "stretch below VWAP".
+    idx = pd.DatetimeIndex(["2026-01-05 15:25"]).append(
+        pd.date_range("2026-01-06 09:15", periods=5, freq="5min")
+    )
+    pv = [-0.5, 0.02, 0.02, 0.02, -0.02, 0.05]
+    mins = [370.0, 0.0, 5.0, 10.0, 15.0, 20.0]
+    fr = Frame(
+        {
+            "close": np.full(6, 100.0),
+            "price_vs_vwap_pct": np.asarray(pv),
+            "atr_14": np.full(6, 0.3),
+            "minutes_since_open": np.asarray(mins),
+        },
+        idx,
+    )
+    assert VWAPReclaim().detect("X", fr, 5, CFG) is None
+    # Control: the same depth today does trigger.
+    fr.cols["price_vs_vwap_pct"] = np.asarray([0.0, -0.5, 0.02, 0.02, -0.02, 0.05])
+    c = VWAPReclaim().detect("X", fr, 5, CFG)
+    assert c is not None and c.direction == "long"

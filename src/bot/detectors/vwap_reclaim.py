@@ -19,8 +19,14 @@ class VWAPReclaim:
         if fr["minutes_since_open"][i] < MIN_MINUTES_SINCE_OPEN:
             return None
         cur = fr["price_vs_vwap_pct"][i]
-        prev = fr["price_vs_vwap_pct"][i - LOOKBACK : i]
-        if not finite(fr, i - 1, "price_vs_vwap_pct") or prev.size < LOOKBACK:
+        # Lookback stays inside today's session: yesterday's distance to yesterday's VWAP
+        # says nothing about today's (matters on 5m/15m bars soon after the open).
+        day = fr.index[i].normalize()
+        lo = i - LOOKBACK
+        while lo < i and fr.index[lo].normalize() != day:
+            lo += 1
+        prev = fr["price_vs_vwap_pct"][lo:i]
+        if prev.size == 0 or not finite(fr, i - 1, "price_vs_vwap_pct"):
             return None
         if cur > 0 and prev[-1] <= 0 and prev.min() <= -MIN_DEPTH_PCT:
             return make_candidate(symbol, self.name, "long", fr, i, cfg)

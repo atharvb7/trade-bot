@@ -52,7 +52,9 @@ VARIANTS = [
 ]
 
 
-def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
+def load_bhavcopy(
+    folder: Path, last_day: date | None = None, first_day: date | None = None
+) -> pd.DataFrame:
     """Long frame of EQ rows. Files dated after ``last_day`` are never opened.
 
     The archive serves the previous session's file again on holidays, so the date comes from
@@ -62,6 +64,8 @@ def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
     for path in sorted(folder.glob("*.csv")):
         day = pd.Timestamp(path.stem)
         if last_day is not None and day.date() > last_day:
+            continue
+        if first_day is not None and day.date() < first_day:
             continue
         raw = pd.read_csv(path, skipinitialspace=True, usecols=list(COLS), na_values=["-"])
         raw = raw.rename(columns=COLS)

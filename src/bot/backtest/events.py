@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -33,19 +34,25 @@ def classify(category: str, text: str) -> str | None:
     return None
 
 
-def load_announcements(folder: Path, last_month: str | None = None) -> pd.DataFrame:
-    """Rows (symbol, ts, kind) for classified announcements; months after ``last_month`` skipped."""
+def classify_items(items: list[dict[str, Any]]) -> pd.DataFrame:
+    """Rows (symbol, ts, kind) for the announcements the text rules classify."""
     out: list[tuple[str, str, str]] = []
-    for path in sorted(folder.glob("*.json")):
-        if last_month is not None and path.stem > last_month:
-            continue
-        for item in json.loads(path.read_text()):
-            kind = classify(item.get("desc") or "", item.get("attchmntText") or "")
-            if kind and item.get("symbol") and item.get("sort_date"):
-                out.append((item["symbol"], item["sort_date"], kind))
+    for item in items:
+        kind = classify(item.get("desc") or "", item.get("attchmntText") or "")
+        if kind and item.get("symbol") and item.get("sort_date"):
+            out.append((item["symbol"], item["sort_date"], kind))
     df = pd.DataFrame(out, columns=["symbol", "ts", "kind"])
     df["ts"] = pd.to_datetime(df["ts"])
     return df
+
+
+def load_announcements(folder: Path, last_month: str | None = None) -> pd.DataFrame:
+    """Classified announcements from the monthly files; months after ``last_month`` skipped."""
+    items: list[dict[str, Any]] = []
+    for path in sorted(folder.glob("*.json")):
+        if last_month is None or path.stem <= last_month:
+            items.extend(json.loads(path.read_text()))
+    return classify_items(items)
 
 
 def trade_day(ts: pd.Series, sessions: pd.DatetimeIndex) -> pd.Series:

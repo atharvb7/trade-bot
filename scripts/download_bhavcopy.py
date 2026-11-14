@@ -5,9 +5,9 @@ files are skipped. Usage: python scripts/download_bhavcopy.py [--start 2019-01-0
 """
 
 import argparse
-import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 from bot.config import ROOT
@@ -21,22 +21,27 @@ ap.add_argument("--end", default=date.today().isoformat())
 args = ap.parse_args()
 
 OUT.mkdir(parents=True, exist_ok=True)
-day, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
-got = missing = 0
-while day <= end:
-    path = OUT / f"{day:%Y%m%d}.csv"
-    if day.weekday() < 5 and not path.exists():
-        req = urllib.request.Request(URL.format(day), headers={"User-Agent": "Mozilla/5.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = resp.read()
-            if body.startswith(b"SYMBOL"):
-                path.write_bytes(body)
-                got += 1
-        except urllib.error.HTTPError as err:
-            if err.code != 404:  # 404 = holiday
-                raise
-            missing += 1
-        time.sleep(0.25)  # polite pace
-    day += timedelta(days=1)
-print(f"downloaded {got}, no file for {missing} weekdays")
+
+
+def fetch(day: date) -> str:
+    """Return 'got', 'none' (404: holiday) or 'bad' (unexpected body)."""
+    req = urllib.request.Request(URL.format(day), headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = resp.read()
+    except urllib.error.HTTPError as err:
+        if err.code != 404:
+            raise
+        return "none"
+    if not body.startswith(b"SYMBOL"):
+        return "bad"
+    (OUT / f"{day:%Y%m%d}.csv").write_bytes(body)
+    return "got"
+
+
+first, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
+days = [first + timedelta(days=i) for i in range((end - first).days + 1)]
+todo = [d for d in days if d.weekday() < 5 and not (OUT / f"{d:%Y%m%d}.csv").exists()]
+with ThreadPoolExecutor(max_workers=4) as pool:  # the archive is slow; 4 is still polite
+    results = list(pool.map(fetch, todo))
+print({k: results.count(k) for k in ("got", "none", "bad")})

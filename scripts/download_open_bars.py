@@ -45,6 +45,8 @@ for i, sym in enumerate(symbols):
             break
         except RuntimeError as err:
             print(f"{sym}: {err} (attempt {attempt + 1})", flush=True)
+            if "limit" not in str(err) and "Bad request" not in str(err):
+                break  # e.g. a symbol Fyers does not know: retrying will not help
             time_mod.sleep(30 * (attempt + 1))
     if bars is None:
         failed.append(sym)

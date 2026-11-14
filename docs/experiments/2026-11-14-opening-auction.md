@@ -54,3 +54,36 @@ and 09:30 bar opens, and the universe-average OPEN → 09:20 return (the benchma
 ### Pass rule
 Mean net return per candidate at the 09:20 exit is positive with the 90% interval above zero
 in **both** selection and validation. Only passing variants are run on the holdout, once.
+
+## Results (run once, 2026-11-14)
+1m bars were downloaded for 356 of the 362 universe stocks (Fyers does not know HEG, HFCL,
+LTIM, MOREPENLAB, SETFGOLD and STLTECH under those names). Coverage is 96–97% of universe
+stock-days. Raw output: `data/experiments/opening_auction/20261114_180017_selection.json`.
+The last two columns are the net return at the 09:16 and 09:30 exits, for information only.
+
+### Selection, 2025-12-15 .. 2026-05-31 (universe mean OPEN → 09:20: −0.053%)
+| Id | Side | Cands | Dropped | Gross % | Net % | Net 90% CI | Win % | 09:16 | 09:30 |
+|---|---|---|---|---|---|---|---|---|---|
+| O1 | short | 471 | 79 | +0.113 | −0.093 | [−0.338, +0.171] | 43.7 | +0.042 | −0.092 |
+| O2 | short | 164 | 12 | +0.391 | +0.186 | [−0.377, +0.954] | 47.6 | +0.227 | +0.492 |
+| O3 | short | 407 | 61 | +0.243 | +0.037 | [−0.164, +0.225] | 48.9 | +0.055 | +0.061 |
+| O4 | long | 362 | 19 | +0.037 | −0.169 | [−0.402, +0.078] | 48.3 | −0.237 | −0.122 |
+
+### Validation, 2026-06-01 .. 2026-08-31 (universe mean OPEN → 09:20: −0.028%)
+| Id | Side | Cands | Dropped | Gross % | Net % | Net 90% CI | Win % | 09:16 | 09:30 |
+|---|---|---|---|---|---|---|---|---|---|
+| O1 | short | 297 | 28 | +0.039 | −0.167 | [−0.325, −0.014] | 40.7 | −0.178 | −0.056 |
+| O2 | short | 79 | 3 | +0.097 | −0.109 | [−0.373, +0.154] | 44.3 | −0.094 | −0.096 |
+| O3 | short | 265 | 15 | −0.025 | −0.231 | [−0.384, −0.075] | 43.4 | −0.188 | −0.282 |
+| O4 | long | 226 | 17 | +0.093 | −0.114 | [−0.309, +0.067] | 46.0 | −0.115 | −0.138 |
+
+### Verdict
+**No variant passes**, in either window. The holdout bars (2026-09-01 onward) were not
+downloaded.
+
+- The drop after the opening auction is real but small: 3–5 bp on average across 200 stocks
+  in the first five minutes, against a round-trip cost of about 21 bp.
+- It is not much larger in the stocks the signals pick. The best gross figure that holds in
+  both windows is about +0.1%, half the cost.
+- So the lead from the daily experiment does not become a trade. It remains useful as a rule
+  for entries: a buy in the first minutes pays a small premium on average.

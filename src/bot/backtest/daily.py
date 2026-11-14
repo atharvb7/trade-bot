@@ -7,7 +7,7 @@ See docs/experiments/2026-11-14-daily-signals.md.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 from typing import Literal
 
@@ -95,7 +95,44 @@ def build_signals(rows: pd.DataFrame) -> dict[str, pd.DataFrame]:
         "ret1": ret.shift(1),
         "shock_up": ret.where(shock & (ret >= 0.03)).shift(1),
         "shock_down": ret.where(shock & (ret <= -0.03)).shift(1),
+        # The two gap signals use day t's own opening price (see the opening-auction write-up).
+        "open": opn,
+        "gap_up": overnight.where(overnight >= 0.01),
+        "gap_down": overnight.where(overnight <= -0.01),
     }
+
+
+OPEN_VARIANTS = [
+    Variant("O1", "overnight20", "high", "short"),
+    Variant("O2", "shock_down", "low", "short"),
+    Variant("O3", "gap_up", "high", "short"),
+    Variant("O4", "gap_down", "low", "long"),
+]
+
+
+def open_exit_prices(folder: Path, exit_time: time) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Wide (date x symbol) frames: open of the 09:15 bar and open of the ``exit_time`` bar."""
+    first: dict[str, pd.Series] = {}
+    exits: dict[str, pd.Series] = {}
+    for path in sorted(folder.glob("*.parquet")):
+        bars = pd.read_parquet(path, columns=["open"])["open"]
+        for store, at in ((first, time(9, 15)), (exits, exit_time)):
+            px = bars[pd.DatetimeIndex(bars.index).time == at]
+            store[path.stem] = px.set_axis(px.index.normalize())
+    return pd.DataFrame(first), pd.DataFrame(exits)
+
+
+def with_open_exit(
+    sig: dict[str, pd.DataFrame], first: pd.DataFrame, exits: pd.DataFrame
+) -> dict[str, pd.DataFrame]:
+    """Copy of ``sig`` whose trade return is official OPEN -> exit price.
+
+    Stock-days whose first 1m bar disagrees with the official open by more than 0.1% are blank.
+    """
+    opn = sig["open"]
+    first, exits = first.reindex_like(opn), exits.reindex_like(opn)
+    ok = (first / opn - 1).abs() <= 0.001
+    return {**sig, "intraday": (exits / opn - 1).where(ok)}
 
 
 def _long(wide: pd.DataFrame, name: str) -> pd.DataFrame:

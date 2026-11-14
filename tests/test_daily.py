@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +12,9 @@ from bot.backtest.daily import (
     candidates,
     load_bhavcopy,
     net_return,
+    open_exit_prices,
     summarize,
+    with_open_exit,
 )
 from bot.config import CostsCfg
 
@@ -90,3 +92,15 @@ def test_load_bhavcopy_uses_file_date_and_skips_late_files(tmp_path: Path) -> No
     out = load_bhavcopy(tmp_path, last_day=date(2024, 1, 2))
     assert out[["symbol", "date"]].values.tolist() == [["AAA", pd.Timestamp("2024-01-01")]]
     assert len(load_bhavcopy(tmp_path)) == 2
+
+
+def test_open_exit_uses_official_open_and_blanks_mismatched_bars(tmp_path: Path) -> None:
+    idx = pd.to_datetime(["2024-01-01 09:15", "2024-01-01 09:20", "2024-01-02 09:15",
+                          "2024-01-02 09:20"])  # fmt: skip
+    pd.DataFrame({"open": [100.0, 99.0, 50.0, 49.0]}, index=idx).to_parquet(tmp_path / "S0.parquet")
+    first, exits = open_exit_prices(tmp_path, time(9, 20))
+    days = pd.to_datetime(["2024-01-01", "2024-01-02"])
+    sig = {"open": pd.DataFrame({"S0": [100.0, 51.0], "S1": [10.0, 10.0]}, index=days)}
+    out = with_open_exit(sig, first, exits)["intraday"]
+    assert out.loc[days[0], "S0"] == pytest.approx(-0.01)
+    assert out.loc[days[1]].isna().all() and np.isnan(out.loc[days[0], "S1"])

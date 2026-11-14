@@ -29,7 +29,9 @@ symbols = sorted(universe.columns[universe.any()])[shard_k::shard_n]
 print(f"{len(symbols)} symbols, {len(universe)} sessions", flush=True)
 
 sec = Secrets()
-prov = FyersProvider(sec.fyers_app_id, sec.fyers_access_token)
+prov = FyersProvider(
+    sec.fyers_app_id, sec.fyers_access_token, pause_s=1.3
+)  # 50 requests per minute cap
 failed: list[str] = []
 for i, sym in enumerate(symbols):
     path = out_dir / f"{sym}.parquet"

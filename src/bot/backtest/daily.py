@@ -22,6 +22,7 @@ COLS = {
     "DATE1": "date",
     "PREV_CLOSE": "prev_close",
     "OPEN_PRICE": "open",
+    "HIGH_PRICE": "high",
     "CLOSE_PRICE": "close",
     "TURNOVER_LACS": "turnover",
 }
@@ -68,7 +69,7 @@ def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
         raw["date"] = pd.to_datetime(raw["date"], format="%d-%b-%Y")
         frames.append(raw)
     out = pd.concat(frames, ignore_index=True)
-    num = ["prev_close", "open", "close", "turnover"]
+    num = ["prev_close", "open", "high", "close", "turnover"]
     out[num] = out[num].apply(pd.to_numeric, errors="coerce")
     return out.dropna(subset=num).drop_duplicates(["date", "symbol"])
 

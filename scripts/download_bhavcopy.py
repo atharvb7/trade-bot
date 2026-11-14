@@ -5,6 +5,7 @@ files are skipped. Usage: python scripts/download_bhavcopy.py [--start 2019-01-0
 """
 
 import argparse
+import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -26,13 +27,21 @@ OUT.mkdir(parents=True, exist_ok=True)
 def fetch(day: date) -> str:
     """Return 'got', 'none' (404: holiday) or 'bad' (unexpected body)."""
     req = urllib.request.Request(URL.format(day), headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            body = resp.read()
-    except urllib.error.HTTPError as err:
-        if err.code != 404:
-            raise
-        return "none"
+    body = b""
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                body = resp.read()
+            break
+        except urllib.error.HTTPError as err:
+            if err.code == 404:
+                return "none"
+            if attempt == 3:
+                raise
+        except OSError:  # timeouts and dropped connections: retry
+            if attempt == 3:
+                raise
+        time.sleep(2 * (attempt + 1))
     if not body.startswith(b"SYMBOL"):
         return "bad"
     (OUT / f"{day:%Y%m%d}.csv").write_bytes(body)

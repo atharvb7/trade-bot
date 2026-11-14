@@ -19,6 +19,7 @@ from bot.backtest.costs import CostModel
 COLS = {
     "SYMBOL": "symbol",
     "SERIES": "series",
+    "DATE1": "date",
     "PREV_CLOSE": "prev_close",
     "OPEN_PRICE": "open",
     "CLOSE_PRICE": "close",
@@ -51,7 +52,11 @@ VARIANTS = [
 
 
 def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
-    """Long frame of EQ rows. Files dated after ``last_day`` are never opened."""
+    """Long frame of EQ rows. Files dated after ``last_day`` are never opened.
+
+    The archive serves the previous session's file again on holidays, so the date comes from
+    the DATE1 column and repeated (date, symbol) rows are dropped.
+    """
     frames = []
     for path in sorted(folder.glob("*.csv")):
         day = pd.Timestamp(path.stem)
@@ -60,7 +65,7 @@ def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
         raw = pd.read_csv(path, skipinitialspace=True, usecols=list(COLS), na_values=["-"])
         raw = raw.rename(columns=COLS)
         raw = raw[raw["series"] == "EQ"].drop(columns="series")
-        raw["date"] = day
+        raw["date"] = pd.to_datetime(raw["date"], format="%d-%b-%Y")
         frames.append(raw)
     out = pd.concat(frames, ignore_index=True)
     num = ["prev_close", "open", "close", "turnover"]

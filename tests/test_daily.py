@@ -1,9 +1,19 @@
+from datetime import date
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from bot.backtest.costs import CostModel
-from bot.backtest.daily import VARIANTS, build_signals, candidates, net_return, summarize
+from bot.backtest.daily import (
+    VARIANTS,
+    build_signals,
+    candidates,
+    load_bhavcopy,
+    net_return,
+    summarize,
+)
 from bot.config import CostsCfg
 
 ZERO = CostsCfg(
@@ -62,3 +72,21 @@ def test_candidates_pick_extremes_and_flip_short_gross() -> None:
     row = d6.iloc[-1]
     assert row["gross"] == pytest.approx(-sig["intraday"].loc[row["date"], row["symbol"]])
     assert summarize(d6)["n"] == len(d6)
+
+
+def test_load_bhavcopy_uses_file_date_and_skips_late_files(tmp_path: Path) -> None:
+    head = "SYMBOL, SERIES, DATE1, PREV_CLOSE, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, LAST_PRICE, "
+    head += "CLOSE_PRICE, AVG_PRICE, TTL_TRD_QNTY, TURNOVER_LACS, NO_OF_TRADES, DELIV_QTY, "
+    head += "DELIV_PER"
+    row = "{}, {}, {}, 10.0, 10.1, 11, 9, 10.2, 10.3, 10.2, 100, 5.5, 7, -, -"
+    day1 = "\n".join(
+        [head, row.format("AAA", "EQ", "01-Jan-2024"), row.format("B", "BE", "01-Jan-2024")]
+    )
+    (tmp_path / "20240101.csv").write_text(day1)
+    (tmp_path / "20240102.csv").write_text(day1)  # holiday: archive repeats the last session
+    (tmp_path / "20240103.csv").write_text(
+        "\n".join([head, row.format("AAA", "EQ", "03-Jan-2024")])
+    )
+    out = load_bhavcopy(tmp_path, last_day=date(2024, 1, 2))
+    assert out[["symbol", "date"]].values.tolist() == [["AAA", pd.Timestamp("2024-01-01")]]
+    assert len(load_bhavcopy(tmp_path)) == 2

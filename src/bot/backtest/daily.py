@@ -73,7 +73,9 @@ def load_bhavcopy(folder: Path, last_day: date | None = None) -> pd.DataFrame:
     return out.dropna(subset=num).drop_duplicates(["date", "symbol"])
 
 
-def build_signals(rows: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def build_signals(
+    rows: pd.DataFrame, universe_size: int = UNIVERSE_SIZE
+) -> dict[str, pd.DataFrame]:
     """Wide (date x symbol) frames. Every signal at row t depends on rows <= t-1 only."""
     wide = {
         c: rows.pivot(index="date", columns="symbol", values=c)
@@ -86,7 +88,7 @@ def build_signals(rows: pd.DataFrame) -> dict[str, pd.DataFrame]:
     med_turn = turn.rolling(LOOKBACK, min_periods=LOOKBACK).median()
     shock = turn >= 3 * med_turn.shift(1)  # day vs the 20 days before it
     liquid_rank = med_turn.shift(1).rank(axis=1, ascending=False, method="first")
-    universe = (liquid_rank <= UNIVERSE_SIZE) & (prev >= MIN_PRICE) & (overnight.abs() <= MAX_GAP)
+    universe = (liquid_rank <= universe_size) & (prev >= MIN_PRICE) & (overnight.abs() <= MAX_GAP)
     return {
         "intraday": intraday,
         "universe": universe,
@@ -97,6 +99,7 @@ def build_signals(rows: pd.DataFrame) -> dict[str, pd.DataFrame]:
         "shock_down": ret.where(shock & (ret <= -0.03)).shift(1),
         # The two gap signals use day t's own opening price (see the opening-auction write-up).
         "open": opn,
+        "gap": overnight,
         "gap_up": overnight.where(overnight >= 0.01),
         "gap_down": overnight.where(overnight <= -0.01),
     }

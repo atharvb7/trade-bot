@@ -39,7 +39,7 @@ for name, (lo, hi) in WINDOWS.items():
     print("|---|---|---|---|---|---|---|---|---|")
     for set_id, frame in sets.items():
         for side in ("long", "short"):
-            v = Variant(set_id, set_id, "high", side)  # type: ignore[arg-type]
+            v = Variant(set_id, set_id, "high", side)
             c = candidates({**sig, set_id: frame}, v, costs, top=10**6)
             c = c[(c["date"] >= pd.Timestamp(lo)) & (c["date"] <= pd.Timestamp(hi))]
             m = summarize(c)

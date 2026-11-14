@@ -32,3 +32,12 @@ ml:
     subsample_freq: 1
     colsample_bytree: 0.8
     reg_lambda: 1.0
+news_gap:                   # paper strategy under forward test (docs/experiments/2026-11-14-paper-protocol.md)
+  universe_size: 500
+  min_price: 20.0
+  min_gap_pct: 2.0
+  stop_floor_pct: 1.0
+  prepare_time: "09:00"
+  screen_time: "09:16"
+  entry_time: "09:30"
+  finalize_time: "15:31"

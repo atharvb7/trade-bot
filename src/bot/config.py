@@ -61,6 +61,19 @@ class ExecutionCfg(BaseModel):
     target_fill: Literal["touch", "through"] = "touch"
 
 
+class NewsGapCfg(BaseModel):
+    """Paper strategy under forward test (docs/experiments/2026-11-14-paper-protocol.md)."""
+
+    universe_size: int = 500  # most traded stocks, by 20-session median turnover
+    min_price: float = 20.0
+    min_gap_pct: float = 2.0  # opening gap up after out-of-hours news
+    stop_floor_pct: float = 1.0  # stop is the morning high, but never closer than this
+    prepare_time: str = "09:00"
+    screen_time: str = "09:16"
+    entry_time: str = "09:30"
+    finalize_time: str = "15:31"
+
+
 class AppCfg(BaseModel):
     timezone: str = "Asia/Kolkata"
     database_url: str = "sqlite:///data/bot.db"
@@ -75,6 +88,7 @@ class AppCfg(BaseModel):
     ml: MLCfg = MLCfg()
     detectors: DetectorCfg = DetectorCfg()
     execution: ExecutionCfg = ExecutionCfg()
+    news_gap: NewsGapCfg = NewsGapCfg()
 
 
 class RiskCfg(BaseModel):

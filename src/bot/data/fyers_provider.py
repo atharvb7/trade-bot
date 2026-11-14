@@ -41,6 +41,21 @@ class FyersProvider:
         )
         self._pause = pause_s
 
+    def quotes(self, symbols: list[str]) -> dict[str, tuple[float, float]]:
+        """symbol -> (today's open, previous close). Unknown symbols are left out."""
+        out: dict[str, tuple[float, float]] = {}
+        for i in range(0, len(symbols), 50):  # the API takes up to 50 symbols per call
+            names = {fyers_symbol(s): s for s in symbols[i : i + 50]}
+            resp = self._fyers.quotes(data={"symbols": ",".join(names)})
+            if resp.get("s") != "ok":
+                raise RuntimeError(f"Fyers quotes failed: {resp.get('message')}")
+            for item in resp.get("d", []):
+                v = item.get("v", {})
+                if item.get("n") in names and "open_price" in v:
+                    out[names[item["n"]]] = (float(v["open_price"]), float(v["prev_close_price"]))
+            time.sleep(self._pause)
+        return out
+
     def history_1m(self, symbol: str, start: date, end: date) -> pd.DataFrame:
         frames: list[pd.DataFrame] = []
         cur = start

@@ -1,0 +1,18 @@
+# systemd unit for the paper runner. Copy to /etc/systemd/system/, set User and paths, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now trade-bot-paper
+[Unit]
+Description=Trade bot paper runner (news gap fade)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=CHANGE_ME
+WorkingDirectory=/home/CHANGE_ME/trade_bot
+ExecStart=/home/CHANGE_ME/trade_bot/.venv/bin/python scripts/run_paper.py
+Restart=on-failure
+RestartSec=30
+# The kill switch exits with status 0, so systemd does not restart it.
+
+[Install]
+WantedBy=multi-user.target

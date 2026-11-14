@@ -101,3 +101,41 @@ tends to fall from its opening price to the close. S1 short passes selection onl
      available.
   3. Net return with the worst 5% of candidates' losses doubled (tail stress).
   4. Net return with costs doubled.
+
+## Holdout results (run once, 2026-11-14)
+Raw output: `data/experiments/events/20261114_173849_holdout.json`.
+
+| Set | Side | Cands | Days | Gross % | Net % | Net 90% CI | Win % | Benchmark % |
+|---|---|---|---|---|---|---|---|---|
+| S2 | short | 123 | 92 | +0.579 | +0.374 | [−0.139, +0.947] | 57.7 | −0.077 |
+| S3 | short | 386 | 131 | +0.286 | +0.080 | [−0.335, +0.507] | 51.3 | −0.149 |
+
+| Diagnostic | S2 short | S3 short |
+|---|---|---|
+| Close within 0.1% of the day's high | 3.3% of candidates, mean net −1.54% | 2.8%, mean net −2.89% |
+| Top 200 by turnover only | n 31, net +0.121%, CI [−0.621, +0.888] | n 150, net −0.421%, CI [−1.073, +0.236] |
+| Worst 5% of losses doubled | −0.009% | −0.375% |
+| Costs doubled | +0.169% | −0.126% |
+
+### Verdict
+**Neither test is confirmed.** Both holdout intervals include zero.
+
+- S2 (order win, gap up ≥ 2%, short) stays positive in all three windows, but shrinks each
+  time: +1.05%, +0.58%, +0.37% net. With 123 holdout trades the interval is too wide to tell
+  a small real edge from zero.
+- S3 (results, gap up ≥ 2%, short) drops from +0.52% and +0.78% to +0.08%.
+- In the 200 most traded stocks, where intraday shorting is reliably available, neither has
+  an edge. The effect lives in smaller names.
+- The average depends on avoiding the tail. About 3% of trades close at the day's high with a
+  mean loss of 1.5–2.9%, before any penalty for being unable to cover. Doubling the worst 5%
+  of losses takes S2 to zero.
+
+### What this means for the bot
+1. Announcements do carry information that price patterns did not: these are the first tests
+   to pass selection and validation. That is worth more work.
+2. As specified, the trade is not ready: it is a short in small and mid caps at the open,
+   without a stop, and the holdout does not confirm it.
+3. Never buy a news gap-up at the open. S1–S3 longs lose 0.5–1.5% per trade in every window.
+4. The holdout for these two tests is now used. Any refinement (a stop, an earlier exit,
+   intraday announcements, a liquidity filter) needs its own pre-registration and data after
+   2026-11-13 to confirm it.
